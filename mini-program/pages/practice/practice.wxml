@@ -1,0 +1,70 @@
+<view class="container">
+  <view class="plan-generator">
+    <view class="form-group">
+      <text class="label">当前状态描述：</text>
+      <textarea 
+        class="textarea"
+        value="{{stateDescription}}" 
+        bindinput="onStateDescriptionChange" 
+        placeholder="请描述您当前的心理状态或遇到的挑战..."
+        disabled="{{isLoading}}"
+      />
+    </view>
+    
+    <view class="form-group">
+      <text class="label">计划周期：</text>
+      <picker 
+        mode="selector" 
+        range="{{planDaysOptions}}" 
+        range-key="label"
+        value="{{planDaysIndex}}"
+        bindchange="onPlanDaysChange"
+        disabled="{{isLoading}}"
+      >
+        <view class="picker">{{planDaysOptions[planDaysIndex].label}}</view>
+      </picker>
+    </view>
+    
+    <button 
+      class="generate-btn" 
+      bindtap="generatePlan" 
+      disabled="{{!stateDescription.trim() || isLoading}}"
+    >
+      {{isLoading ? '生成中...' : '生成计划'}}
+    </button>
+  </view>
+  
+  <view v-if="generatedPlan" class="plan-display">
+    <view class="plan-title">{{generatedPlan.title}}</view>
+    <view class="plan-details">
+      <block wx:for="{{generatedPlan.tasks}}" wx:key="day">
+        <view class="task-day">
+          <text class="day-title">第{{item.day}}天</text>
+          <text class="task-title">{{item.title}}</text>
+          <text class="task-description">{{item.description}}</text>
+          <view class="scientific-basis" wx:if="{{item.scientific_basis}}">
+            <text class="basis-label">科学依据：</text>
+            <text class="basis-text">{{item.scientific_basis}}</text>
+          </view>
+        </view>
+      </block>
+    </view>
+  </view>
+  
+  <view wx:if="{{plans.length > 0}}" class="plans-list">
+    <text class="section-title">我的修行计划</text>
+    <scroll-view class="plan-cards" scroll-y="true">
+      <view 
+        wx:for="{{plans}}" 
+        wx:key="id"
+        class="plan-card {{selectedPlanId === item.id ? 'active' : ''}}"
+        bindtap="selectPlan"
+        data-plan-id="{{item.id}}"
+      >
+        <text class="plan-card-title">{{item.title}}</text>
+        <text class="plan-card-days">{{item.days}}天计划</text>
+        <text class="plan-card-date">{{item.created_at}}</text>
+      </view>
+    </scroll-view>
+  </view>
+</view>
