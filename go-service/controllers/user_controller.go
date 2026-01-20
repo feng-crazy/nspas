@@ -1,183 +1,123 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
 
-	"neuro-guide-go-service/config"
-	"neuro-guide-go-service/services"
-
 	"github.com/gin-gonic/gin"
+	"github.com/nspas/go-service/config"
+	"github.com/nspas/go-service/services"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-var userService = services.NewUserService()
-var wechatAuthService *services.WeChatAuthService
-
-// InitUserController initializes the user controller with config
-func InitUserController(cfg *config.Config) {
-	wechatAuthService = services.NewWeChatAuthService(cfg, userService)
+type UserController struct {
+	userService *services.UserService
 }
 
-// LoginRequest represents a login request
-type LoginRequest struct {
-	WechatID string `json:"wechat_id" binding:"required"`
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
+func NewUserController(cfg *config.Config, db *mongo.Database) *UserController {
+	return &UserController{
+		userService: services.NewUserService(cfg, db),
+	}
 }
 
-// WeChatLoginRequest represents a WeChat login request
-type WeChatLoginRequest struct {
-	Code string `json:"code" binding:"required"`
+// RegisterRequest 注册请求
+ type RegisterRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=6"`
+	Phone    string `json:"phone"`
 }
 
-// UserLogin handles user login/registration
-func UserLogin(c *gin.Context) {
+// LoginRequest 登录请求
+ type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+// Register 用户注册
+func (c *UserController) Register(ctx *gin.Context) {
+	var req RegisterRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, err := c.userService.Register(ctx, req.Email, req.Password, req.Phone)
+	if err != nil {
+		if err == services.ErrUserExists {
+			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, gin.H{
+		"id":        user.ID.Hex(),
+		"email":     user.Email,
+		"phone":     user.Phone,
+		"role":      user.Role,
+		"created_at": user.CreatedAt,
+	})
+}
+
+// Login 用户登录
+func (c *UserController) Login(ctx *gin.Context) {
 	var req LoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	user, err := userService.GetOrCreateUser(req.WechatID, req.Nickname, req.Avatar)
+	user, token, err := c.userService.Login(ctx, req.Email, req.Password)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login user"})
-		return
-	}
-
-	c.JSON(http.StatusOK, user)
-}
-
-// WeChatLogin handles WeChat OAuth login
-func WeChatLogin(c *gin.Context) {
-	var req WeChatLoginRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// 处理可能的表单数据（微信网页端登录）
-	// 实际项目中应该使用更合适的方式来获取这些数据
-	userInfo := make(map[string]interface{})
-	if c.Request.Method == "POST" {
-		// 简单地从表单中获取数据，实际项目中应该使用更可靠的方式
-		if nickname := c.PostForm("nickname"); nickname != "" {
-			userInfo["nickname"] = nickname
+		if err == services.ErrInvalidCredentials {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			return
 		}
-		if avatar := c.PostForm("avatar"); avatar != "" {
-			userInfo["avatar"] = avatar
-		}
-	}
-
-	user, token, err := wechatAuthService.AuthenticateWithCode(req.Code, &userInfo)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("WeChat login failed: %v", err)})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"data": gin.H{
-			"user": gin.H{
-				"id":        user.ID,
-				"wechat_id": user.WechatID,
-				"nickname":  user.Nickname,
-				"avatar":    user.Avatar,
-				"is_guest":  user.IsGuest,
-			},
-			"token": token,
+	ctx.JSON(http.StatusOK, gin.H{
+		"token": token,
+		"user": gin.H{
+			"id":        user.ID.Hex(),
+			"email":     user.Email,
+			"phone":     user.Phone,
+			"role":      user.Role,
+			"created_at": user.CreatedAt,
 		},
 	})
 }
 
-// BindPhoneNumber handles phone number binding for WeChat users
-func BindPhoneNumber(c *gin.Context) {
-	// 获取当前用户ID（从JWT token中）
-	userID, exists := c.Get("userID")
+// GetCurrentUser 获取当前用户
+func (c *UserController) GetCurrentUser(ctx *gin.Context) {
+	// 从上下文获取用户ID
+	userIDStr, exists := ctx.Get("user_id")
 	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权的用户"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	// 获取请求参数
-	var req struct {
-		EncryptedData string `json:"encryptedData" binding:"required"`
-		IV            string `json:"iv" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// 在实际应用中，这里应该调用微信的解密接口
-	// 这里只是示例，直接返回成功
-
-	// 更新用户信息，绑定手机号（实际项目中应该有更完善的手机号管理）
-	err := userService.BindPhoneNumber(userID.(string), "13800138000") // 使用虚拟手机号
+	// 解析用户ID
+	userID, err := primitive.ObjectIDFromHex(userIDStr.(string))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("手机号绑定失败: %v", err)})
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": "手机号绑定成功",
+	// 获取用户信息
+	user, err := c.userService.GetUserByID(ctx, userID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get user"})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{
+		"id":        user.ID.Hex(),
+		"email":     user.Email,
+		"phone":     user.Phone,
+		"role":      user.Role,
+		"created_at": user.CreatedAt,
 	})
-}
-
-// GetUserProfile handles getting user profile
-func GetUserProfile(c *gin.Context) {
-	userID := c.Param("id")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
-		return
-	}
-
-	user, err := userService.GetUserByID(userID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, user)
-}
-
-// UpdateUserProfile handles updating user profile
-type UpdateUserProfileRequest struct {
-	Nickname string `json:"nickname"`
-	Avatar   string `json:"avatar"`
-}
-
-func UpdateUserProfile(c *gin.Context) {
-	userID := c.Param("id")
-	if userID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User ID is required"})
-		return
-	}
-
-	var req UpdateUserProfileRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	user, err := userService.GetUserByID(userID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-		return
-	}
-
-	if req.Nickname != "" {
-		user.Nickname = req.Nickname
-	}
-	if req.Avatar != "" {
-		user.Avatar = req.Avatar
-	}
-
-	if err := userService.UpdateUser(user); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user"})
-		return
-	}
-
-	c.JSON(http.StatusOK, user)
 }

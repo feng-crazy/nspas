@@ -1,57 +1,90 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"os"
 
-	"neuro-guide-go-service/config"
-	"neuro-guide-go-service/database"
-	"neuro-guide-go-service/routes"
-
-	"github.com/joho/godotenv"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
+	"github.com/nspas/go-service/config"
+	"github.com/nspas/go-service/controllers"
+	"github.com/nspas/go-service/database"
+	"github.com/nspas/go-service/middleware"
 )
 
 func main() {
-	// 加载环境变量
-	if err := godotenv.Load(".env"); err != nil {
-		log.Printf("Error loading .env file: %v", err)
+	// 加载配置
+	cfg := config.LoadConfig()
+
+	// 连接数据库
+	err := database.Connect(cfg)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer database.Close()
+
+	// 获取数据库实例
+	db := database.Client.Database(cfg.Database.Database)
+
+	// 创建Gin实例
+	r := gin.Default()
+
+	// 配置CORS
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+	}))
+
+	// 初始化控制器
+	userController := controllers.NewUserController(cfg, db)
+	conversationController := controllers.NewConversationController()
+	toolController := controllers.NewToolController()
+	aiController := controllers.NewAIController(cfg)
+	wechatController := controllers.NewWeChatController(cfg, db)
+
+	// 公开路由
+	public := r.Group("/api")
+	{
+		// 用户认证
+		public.POST("/auth/register", userController.Register)
+		public.POST("/auth/login", userController.Login)
+
+		// 微信登录
+		public.GET("/auth/wechat", wechatController.GetWeChatAuthURL)
+		public.GET("/auth/wechat/callback", wechatController.WeChatCallback)
+
+		// AI聊天（公开接口，后续可以添加认证）
+		public.POST("/ai/chat", aiController.Chat)
 	}
 
-	// 初始化配置
-	cfg := &config.Config{
-		Port:               os.Getenv("PORT"),
-		AppName:            "neuro-guide-go-service",
-		Environment:        os.Getenv("ENVIRONMENT"),
-		MongoDBURI:         os.Getenv("MONGODB_URI"),
-		MongoDBName:        os.Getenv("MONGODB_NAME"),
-		WeChatAppID:        os.Getenv("WECHAT_APP_ID"),
-		WeChatSecret:       os.Getenv("WECHAT_APP_SECRET"),
-		PythonAIServiceURL: os.Getenv("PYTHON_AI_SERVICE_URL"),
-	}
+	// 受保护路由
+	protected := r.Group("/api")
+	protected.Use(middleware.AuthMiddleware(cfg))
+	{
+		// 用户相关
+		protected.GET("/user", userController.GetCurrentUser)
 
-	if cfg.Port == "" {
-		cfg.Port = "8080" // 默认端口
-	}
+		// 对话相关
+		protected.POST("/conversations", conversationController.CreateConversation)
+		protected.GET("/conversations", conversationController.GetUserConversations)
+		protected.GET("/conversations/:id", conversationController.GetConversation)
+		protected.PUT("/conversations/:id", conversationController.UpdateConversation)
+		protected.DELETE("/conversations/:id", conversationController.DeleteConversation)
 
-	if cfg.MongoDBURI == "" {
-		cfg.MongoDBURI = "mongodb://localhost:27017" // 默认MongoDB地址
+		// 工具相关
+		protected.POST("/tools", toolController.SaveTool)
+		protected.GET("/tools", toolController.GetUserTools)
+		protected.GET("/tools/:id", toolController.GetTool)
+		protected.DELETE("/tools/:id", toolController.DeleteTool)
 	}
-
-	if cfg.MongoDBName == "" {
-		cfg.MongoDBName = "neuro_guide" // 默认数据库名
-	}
-
-	// 初始化数据库
-	if err := database.InitDB(cfg); err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
-
-	// 初始化路由
-	router := routes.InitRouter(cfg)
 
 	// 启动服务器
-	log.Printf("Starting server on port %s...", cfg.Port)
-	if err := router.Run(":" + cfg.Port); err != nil {
+	port := cfg.Server.Port
+	log.Printf("Server running on port %d", port)
+	if err := r.Run(fmt.Sprintf(":%d", port)); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

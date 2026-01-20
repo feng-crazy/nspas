@@ -4,84 +4,52 @@ import (
 	"net/http"
 	"strings"
 
-	"neuro-guide-go-service/config"
-	"neuro-guide-go-service/services"
-
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/nspas/go-service/config"
 )
 
-var wechatAuthService *services.WeChatAuthService
-
-// InitAuthMiddleware initializes the auth middleware with config
-func InitAuthMiddleware(cfg *config.Config) {
-	wechatAuthService = services.NewWeChatAuthService(cfg, services.NewUserService())
-}
-
-// AuthMiddleware is a simple authentication middleware
-// In production, this should validate JWT tokens or session tokens
-func AuthMiddleware() gin.HandlerFunc {
+func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// For now, we'll use a simple header-based auth
-		// In production, implement proper JWT or session-based auth
+		// 从Authorization头获取token
 		authHeader := c.GetHeader("Authorization")
-
 		if authHeader == "" {
-			// Try to get user_id from query parameter for development
-			userID := c.Query("user_id")
-			if userID == "" {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization required"})
-				c.Abort()
-				return
-			}
-			c.Set("user_id", userID)
-			c.Next()
-			return
-		}
-
-		// Extract token from "Bearer <token>"
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization header"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header is required"})
 			c.Abort()
 			return
 		}
 
-		token := parts[1]
+		// 检查Bearer前缀
+		parts := strings.SplitN(authHeader, " ", 2)
+		if !(len(parts) == 2 && parts[0] == "Bearer") {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header format must be Bearer {token}"})
+			c.Abort()
+			return
+		}
 
-		// Validate token
-		user, err := wechatAuthService.ValidateToken(token)
+		tokenString := parts[1]
+
+		// 解析token
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			return []byte(cfg.JWT.Secret), nil
+		})
+
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			c.Abort()
 			return
 		}
 
-		c.Set("user_id", user.ID)
-		c.Next()
-	}
-}
-
-// OptionalAuthMiddleware allows requests with or without authentication
-func OptionalAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-
-		if authHeader != "" {
-			parts := strings.Split(authHeader, " ")
-			if len(parts) == 2 && parts[0] == "Bearer" {
-				token := parts[1]
-				// Validate token if present
-				if user, err := wechatAuthService.ValidateToken(token); err == nil {
-					c.Set("user_id", user.ID)
-				}
-			}
+		// 验证token
+		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+			// 将用户ID存储到上下文
+			c.Set("user_id", claims["user_id"])
+			c.Set("email", claims["email"])
+			c.Next()
+		} else {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})
+			c.Abort()
+			return
 		}
-
-		// Also check query parameter
-		if userID := c.Query("user_id"); userID != "" {
-			c.Set("user_id", userID)
-		}
-
-		c.Next()
 	}
 }

@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>5分钟神经友好型冥想引导</title>
+  <style>
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(135deg, #e0f7fa, #f5f5f5);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+      padding: 30px;
+      text-align: center;
+    }
+    h1 {
+      color: #00796b;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+    .subtitle {
+      color: #666;
+      font-size: 16px;
+      margin-bottom: 30px;
+    }
+    .timer {
+      font-size: 48px;
+      font-weight: bold;
+      color: #00796b;
+      margin: 20px 0;
+      height: 60px;
+    }
+    .step {
+      background: #f9f9f9;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 15px 0;
+      text-align: left;
+      border-left: 4px solid #4db6ac;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.5s ease;
+    }
+    .step.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .step h3 {
+      margin: 0 0 10px 0;
+      color: #00796b;
+      font-size: 18px;
+    }
+    .step p {
+      margin: 8px 0;
+      line-height: 1.6;
+    }
+    .progress-bar {
+      height: 8px;
+      background: #e0f2f1;
+      border-radius: 4px;
+      margin: 20px 0;
+      overflow: hidden;
+    }
+    .progress {
+      height: 100%;
+      background: #00796b;
+      width: 0%;
+      transition: width 1s linear;
+    }
+    .btn {
+      background: #00796b;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+      transition: background 0.3s;
+    }
+    .btn:hover {
+      background: #004d40;
+    }
+    .btn:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .current-step {
+      font-weight: bold;
+      color: #00796b;
+      margin: 10px 0;
+      font-size: 18px;
+    }
+    .neuro-tip {
+      background: #e8f5e9;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 15px 0;
+      font-size: 14px;
+      color: #2e7d32;
+      border-left: 3px solid #4caf50;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>5分钟神经友好型冥想引导</h1>
+    <div class="subtitle">基于神经科学原理，温和切换DMN与DAN网络</div>
+    
+    <div class="timer" id="timer">05:00</div>
+    
+    <div class="progress-bar">
+      <div class="progress" id="progress"></div>
+    </div>
+    
+    <div class="current-step" id="current-step">准备开始...</div>
+    
+    <button class="btn" id="start-btn">开始冥想</button>
+    <button class="btn" id="pause-btn" disabled>暂停</button>
+    <button class="btn" id="reset-btn">重置</button>
+    
+    <div class="step" id="step-1">
+      <h3>第0-30秒：允许一切如其所是</h3>
+      <p>轻轻对自己说：“此刻，无论我脑子里有什么——念头、烦躁、期待、疲惫……都允许它们存在。”</p>
+      <p>不试图赶走任何东西。就像站在河边，看着水流（思绪）流过，你不是水，你是岸边的人。</p>
+      <div class="neuro-tip">神经作用：减少杏仁核-DMN的耦合，降低“我应该静下来”的压力。</div>
+    </div>
+    
+    <div class="step" id="step-2">
+      <h3>第30秒-2分钟：锚定在呼吸的“触感”</h3>
+      <p>把注意力轻轻带到鼻孔下方或腹部起伏处。不控制呼吸，只是感受：“吸气时，空气接触皮肤的感觉是凉？是温？有流动感吗？”“呼气时，身体有没有微微下沉？”</p>
+      <p>如果走神了（一定会走神！），温柔地注意到“哦，我又在想事情了”，然后回到下一次呼吸的触感。</p>
+      <div class="neuro-tip">神经作用：用具体感官输入激活背侧注意网络（DAN），绕过语言性思维。</div>
+    </div>
+    
+    <div class="step" id="step-3">
+      <h3>第2-4分钟：扩展到全身的“存在感”</h3>
+      <p>吸一口气，想象气息轻轻流遍全身。呼气时，问自己：“此刻，我的脚接触地面的感觉是什么？”“手掌有没有温度或重量感？”“肩膀是紧的，还是松的？”</p>
+      <p>不需要改变任何感觉，只是像科学家一样观察：“哦，这里有紧张”，“那里有放松”。</p>
+      <div class="neuro-tip">神经作用：前岛叶负责“身体地图”与“存在感”，它的激活能自然削弱DMN的自我叙事。</div>
+    </div>
+    
+    <div class="step" id="step-4">
+      <h3>第4-5分钟：开放觉察，不抓不拒</h3>
+      <p>现在，让注意力像天空一样开放：声音来了？知道“有声音”。念头浮现？知道“有念头”。身体痒？知道“有痒感”。不跟随，不分析，不推开——只是“知道”。</p>
+      <p>最后10秒，轻轻问自己：“此刻，觉察本身在哪里？”（答案不重要，提问本身就是觉察）</p>
+      <div class="neuro-tip">神经作用：培养“元觉察”，这是脱离DMN循环的关键。</div>
+    </div>
+    
+    <div class="step" id="step-5">
+      <h3>结束语</h3>
+      <p>无论刚才发生了什么，我都练习了一次回到此刻。这就足够了。</p>
+      <p>记住：冥想不是达成某种状态，而是对任何状态保持觉察。</p>
+    </div>
+  </div>
+
+  <script>
+    let timeLeft = 300; // 5分钟 = 300秒
+    let timerInterval = null;
+    let isRunning = false;
+    
+    const timerDisplay = document.getElementById('timer');
+    const progressBar = document.getElementById('progress');
+    const currentStep = document.getElementById('current-step');
+    const startBtn = document.getElementById('start-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    
+    const steps = [
+      { id: 'step-1', duration: 30, title: '允许一切如其所是' },
+      { id: 'step-2', duration: 90, title: '锚定呼吸触感' },
+      { id: 'step-3', duration: 120, title: '扩展全身觉察' },
+      { id: 'step-4', duration: 60, title: '开放觉察' },
+      { id: 'step-5', duration: 0, title: '结束语' }
+    ];
+    
+    let currentStepIndex = 0;
+    let stepTimeLeft = steps[0].duration;
+    
+    function updateDisplay() {
+      const minutes = Math.floor(timeLeft / 60).toString().padStart(2, '0');
+      const seconds = (timeLeft % 60).toString().padStart(2, '0');
+      timerDisplay.textContent = `${minutes}:${seconds}`;
+      
+      const progress = ((300 - timeLeft) / 300) * 100;
+      progressBar.style.width = `${progress}%`;
+      
+      // 更新当前步骤显示
+      if (currentStepIndex < steps.length) {
+        currentStep.textContent = `当前：${steps[currentStepIndex].title}`;
+        
+        // 高亮当前步骤
+        document.querySelectorAll('.step').forEach((step, index) => {
+          step.classList.toggle('active', index === currentStepIndex);
+        });
+      }
+    }
+    
+    function runTimer() {
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        isRunning = false;
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+        currentStep.textContent = '冥想结束。慢慢睁开眼睛，带着觉察回到当下。';
+        return;
+      }
+      
+      timeLeft--;
+      stepTimeLeft--;
+      
+      // 检查是否进入下一个步骤
+      if (stepTimeLeft <= 0 && currentStepIndex < steps.length - 1) {
+        currentStepIndex++;
+        stepTimeLeft = steps[currentStepIndex].duration;
+      }
+      
+      updateDisplay();
+    }
+    
+    startBtn.addEventListener('click', () => {
+      if (!isRunning) {
+        isRunning = true;
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+        timerInterval = setInterval(runTimer, 1000);
+      }
+    });
+    
+    pauseBtn.addEventListener('click', () => {
+      if (isRunning) {
+        clearInterval(timerInterval);
+        isRunning = false;
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+      }
+    });
+    
+    resetBtn.addEventListener('click', () => {
+      clearInterval(timerInterval);
+      isRunning = false;
+      timeLeft = 300;
+      currentStepIndex = 0;
+      stepTimeLeft = steps[0].duration;
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      updateDisplay();
+      
+      // 重置步骤显示
+      document.querySelectorAll('.step').forEach(step => {
+        step.classList.remove('active');
+      });
+      currentStep.textContent = '准备开始...';
+    });
+    
+    // 初始化显示
+    updateDisplay();
+  </script>
+</body>
+</html>

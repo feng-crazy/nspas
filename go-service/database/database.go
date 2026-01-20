@@ -5,47 +5,41 @@ import (
 	"log"
 	"time"
 
-	"neuro-guide-go-service/config"
-
+	"github.com/nspas/go-service/config"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// Database holds the mongoDB instance
-var Database *mongo.Database
+var Client *mongo.Client
 
-// InitDB initializes the database connection
-func InitDB(cfg *config.Config) error {
-	// MongoDB connection URI
-	mongoURI := cfg.MongoDBURI
-	if mongoURI == "" {
-		mongoURI = "mongodb://localhost:27017" // 默认MongoDB地址
-	}
-
-	// Database name
-	dbName := cfg.MongoDBName
-	if dbName == "" {
-		dbName = "neuro_guide" // 默认数据库名
-	}
-
+func Connect(cfg *config.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(mongoURI))
+	clientOptions := options.Client().ApplyURI(cfg.Database.URI)
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		return err
 	}
 
-	// Check the connection
+	// 测试连接
 	err = client.Ping(ctx, nil)
 	if err != nil {
 		return err
 	}
 
-	log.Println("Connected to MongoDB!")
+	Client = client
+	log.Println("Connected to MongoDB")
+	return nil
+}
 
-	// Get a reference to the database
-	Database = client.Database(dbName)
+func GetCollection(collectionName string) *mongo.Collection {
+	return Client.Database("nspas").Collection(collectionName)
+}
 
+func Close() error {
+	if Client != nil {
+		return Client.Disconnect(context.Background())
+	}
 	return nil
 }

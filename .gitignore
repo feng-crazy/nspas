@@ -98,3 +98,6 @@ package-lock.json
 yarn.lock
 pnpm-lock.yaml
 python-ai-service/data/.DS_Store
+
+.comate
+.trae
