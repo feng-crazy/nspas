@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { Conversation } from '../types';
+import { getConversations } from '../services/api';
 
 const History: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -10,48 +11,39 @@ const History: React.FC = () => {
   const type = searchParams.get('type') || 'all';
 
   useEffect(() => {
-    // 模拟获取对话历史数据
+    // 获取对话历史数据
     const fetchConversations = async () => {
       try {
         setLoading(true);
-        // 这里应该调用API获取真实数据
-        // const response = await fetch('/api/conversations');
-        // const data = await response.json();
+        let data: Conversation[] = [];
         
-        // 模拟数据
-        const mockData: Conversation[] = [
-          {
-            id: '1',
-            type: 'analysis',
-            title: '思维过程分析',
-            messages: [
-              { id: '1-1', content: '我最近总是感到焦虑', isUser: true, createdAt: new Date('2024-01-18T10:00:00') },
-              { id: '1-2', content: '焦虑是一种常见的情绪反应...', isUser: false, createdAt: new Date('2024-01-18T10:01:00') }
-            ],
-            createdAt: new Date('2024-01-18T10:00:00'),
-            updatedAt: new Date('2024-01-18T10:01:00')
-          },
-          {
-            id: '2',
-            type: 'mapping',
-            title: '修行语录映射',
-            messages: [
-              { id: '2-1', content: '"活在当下"的神经科学解释是什么？', isUser: true, createdAt: new Date('2024-01-17T15:30:00') },
-              { id: '2-2', content: '"活在当下"涉及大脑的前额叶皮层...', isUser: false, createdAt: new Date('2024-01-17T15:31:00') }
-            ],
-            createdAt: new Date('2024-01-17T15:30:00'),
-            updatedAt: new Date('2024-01-17T15:31:00')
-          }
-        ];
+        // 如果是获取全部对话，需要分别获取每种类型的对话
+        if (type === 'all') {
+          // 获取所有类型的对话
+          const analysisConvs = await getConversations('analysis');
+          const mappingConvs = await getConversations('mapping');
+          const assistantConvs = await getConversations('assistant');
+          data = [...analysisConvs, ...mappingConvs, ...assistantConvs];
+        } else {
+          // 获取特定类型的对话
+          data = await getConversations(type);
+        }
         
-        // 过滤对话类型
-        const filteredData = type === 'all' 
-          ? mockData 
-          : mockData.filter(conv => conv.type === type);
+        // 转换日期字符串为Date对象
+        const formattedConversations = data.map(conv => ({
+          ...conv,
+          createdAt: new Date(conv.createdAt),
+          updatedAt: new Date(conv.updatedAt),
+          messages: conv.messages.map(msg => ({
+            ...msg,
+            createdAt: new Date(msg.createdAt)
+          }))
+        }));
         
-        setConversations(filteredData);
+        setConversations(formattedConversations);
       } catch (error) {
         console.error('Failed to fetch conversations:', error);
+        setConversations([]);
       } finally {
         setLoading(false);
       }

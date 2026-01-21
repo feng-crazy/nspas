@@ -1,50 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Tool } from '../types';
-
-// 模拟工具数据
-const mockTools: Tool[] = [
-  {
-    id: '1',
-    userId: '1',
-    name: '注意力N-back训练工具',
-    description: '通过N-back任务训练工作记忆和注意力，提升前额叶功能。',
-    htmlContent: '<div>N-back tool HTML content</div>',
-    conversationId: 'conv-1',
-    createdAt: new Date('2025-12-27T14:30:00')
-  },
-  {
-    id: '2',
-    userId: '1',
-    name: '正念呼吸引导工具',
-    description: '引导式呼吸练习，提升专注力和情绪调节能力。',
-    htmlContent: '<div>Breathing tool HTML content</div>',
-    conversationId: 'conv-2',
-    createdAt: new Date('2025-12-26T10:20:00')
-  },
-  {
-    id: '3',
-    userId: '1',
-    name: '情绪调节训练器',
-    description: '认知重构练习，改善情绪反应和思维模式。',
-    htmlContent: '<div>Emotion regulation tool HTML content</div>',
-    conversationId: 'conv-3',
-    createdAt: new Date('2025-12-25T16:15:00')
-  }
-];
+import { getUserTools, deleteTool } from '../services/api';
 
 const Tools: React.FC = () => {
-  const [tools, setTools] = useState<Tool[]>(mockTools);
+  const [tools, setTools] = useState<Tool[]>([]);
   const [showToolModal, setShowToolModal] = useState(false);
   const [currentTool, setCurrentTool] = useState<Tool | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // 获取用户工具
+  const fetchTools = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getUserTools();
+      // 转换日期字符串为Date对象
+      const formattedTools = data.map(tool => ({
+        ...tool,
+        createdAt: new Date(tool.createdAt)
+      }));
+      setTools(formattedTools);
+    } catch (err) {
+      console.error('Failed to fetch tools:', err);
+      setError('获取工具失败，请稍后重试');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 初始加载工具
+  useEffect(() => {
+    fetchTools();
+  }, []);
 
   const handleOpenTool = (tool: Tool) => {
     setCurrentTool(tool);
     setShowToolModal(true);
   };
 
-  const handleDeleteTool = (toolId: string) => {
-    // 这里应该调用API删除工具
-    setTools(prevTools => prevTools.filter(tool => tool.id !== toolId));
+  const handleDeleteTool = async (toolId: string) => {
+    try {
+      await deleteTool(toolId);
+      // 更新工具列表
+      setTools(prevTools => prevTools.filter(tool => tool.id !== toolId));
+    } catch (err) {
+      console.error('Failed to delete tool:', err);
+      setError('删除工具失败，请稍后重试');
+    }
   };
 
   return (
@@ -53,8 +56,14 @@ const Tools: React.FC = () => {
         <h1>🔧 我的修行工具</h1>
       </div>
       
+      {error && <div className="tools-error">{error}</div>}
+      
       <div className="tools-list">
-        {tools.length === 0 ? (
+        {loading ? (
+          <div className="tools-loading">
+            <p>正在加载工具...</p>
+          </div>
+        ) : tools.length === 0 ? (
           <div className="no-tools">
             <p>您还没有保存任何修行工具。</p>
             <p>在修行小助手中创建并保存工具后，它们会显示在这里。</p>

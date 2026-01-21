@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 
 	"github.com/nspas/go-service/config"
+	"github.com/nspas/go-service/logger"
 )
 
 // AIClient 定义AI服务客户端接口
@@ -50,6 +52,10 @@ func NewHTTPClient(cfg *config.Config) *HTTPClient {
 
 // Chat 调用python-ai-service进行对话
 func (c *HTTPClient) Chat(ctx context.Context, messages []Message, convType string) (string, error) {
+	logger.Info(ctx, "AI chat request started",
+		slog.String("conversation_type", convType),
+		slog.Int("message_count", len(messages)))
+
 	// 创建请求体
 	reqBody := AIChatRequest{
 		Messages:         messages,
@@ -59,17 +65,25 @@ func (c *HTTPClient) Chat(ctx context.Context, messages []Message, convType stri
 	// 将请求体转换为JSON
 	jsonData, err := json.Marshal(reqBody)
 	if err != nil {
+		logger.Error(ctx, "Failed to marshal request body", slog.Any("error", err))
 		return "", fmt.Errorf("failed to marshal request body: %w", err)
 	}
 
+	logger.Debug(ctx, "AI chat request body", 
+		slog.String("body", string(jsonData)))
+
 	// 创建HTTP请求
+	reqURL := fmt.Sprintf("%s/chat", c.cfg.PythonAI.BaseURL)
 	httpReq, err := http.NewRequestWithContext(
 		ctx,
 		"POST",
-		fmt.Sprintf("%s/chat", c.cfg.PythonAI.BaseURL),
+		reqURL,
 		bytes.NewBuffer(jsonData),
 	)
 	if err != nil {
+		logger.Error(ctx, "Failed to create HTTP request", 
+			slog.String("url", reqURL),
+			slog.Any("error", err))
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -77,8 +91,13 @@ func (c *HTTPClient) Chat(ctx context.Context, messages []Message, convType stri
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	// 发送请求
+	logger.Info(ctx, "Sending request to AI service", 
+		slog.String("url", reqURL))
 	httpResp, err := c.client.Do(httpReq)
 	if err != nil {
+		logger.Error(ctx, "Failed to send request to AI service", 
+			slog.String("url", reqURL),
+			slog.Any("error", err))
 		return "", fmt.Errorf("failed to send request: %w", err)
 	}
 	defer httpResp.Body.Close()
@@ -86,11 +105,18 @@ func (c *HTTPClient) Chat(ctx context.Context, messages []Message, convType stri
 	// 读取响应体
 	respBody, err := io.ReadAll(httpResp.Body)
 	if err != nil {
+		logger.Error(ctx, "Failed to read AI service response", 
+			slog.String("url", reqURL),
+			slog.Any("error", err))
 		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	// 检查响应状态码
 	if httpResp.StatusCode != http.StatusOK {
+		logger.Error(ctx, "AI service returned error status", 
+			slog.String("url", reqURL),
+			slog.Int("status_code", httpResp.StatusCode),
+			slog.String("response", string(respBody)))
 		return "", fmt.Errorf("AI service returned status code: %d, body: %s", httpResp.StatusCode, string(respBody))
 	}
 
@@ -98,8 +124,16 @@ func (c *HTTPClient) Chat(ctx context.Context, messages []Message, convType stri
 	var resp AIChatResponse
 	err = json.Unmarshal(respBody, &resp)
 	if err != nil {
+		logger.Error(ctx, "Failed to unmarshal AI service response", 
+			slog.String("url", reqURL),
+			slog.String("response", string(respBody)),
+			slog.Any("error", err))
 		return "", fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
+
+	logger.Info(ctx, "AI chat request completed successfully", 
+		slog.String("conversation_type", convType),
+		slog.String("response", resp.Content[:50]+"..."))
 
 	return resp.Content, nil
 }
@@ -119,14 +153,29 @@ func NewMockAIClient() *MockAIClient {
 
 // Chat 返回mock响应或错误
 func (c *MockAIClient) Chat(ctx context.Context, messages []Message, convType string) (string, error) {
+	logger.Info(ctx, "Mock AI chat request started",
+		slog.String("conversation_type", convType),
+		slog.Int("message_count", len(messages)))
+
 	if c.MockError != nil {
+		logger.Error(ctx, "Mock AI chat returned error", 
+			slog.String("conversation_type", convType),
+			slog.Any("error", c.MockError))
 		return "", c.MockError
 	}
 
 	// 如果没有设置mock响应，返回默认响应
 	if c.MockResponse == "" {
-		return getDefaultResponse(convType), nil
+		defaultResp := getDefaultResponse(convType)
+		logger.Info(ctx, "Mock AI chat returned default response", 
+			slog.String("conversation_type", convType),
+			slog.String("response", defaultResp[:50]+"..."))
+		return defaultResp, nil
 	}
+
+	logger.Info(ctx, "Mock AI chat returned custom response", 
+		slog.String("conversation_type", convType),
+		slog.String("response", c.MockResponse[:50]+"..."))
 
 	return c.MockResponse, nil
 }

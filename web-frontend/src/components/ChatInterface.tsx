@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message, ConversationType } from '../types';
-import { chatWithAI, createConversation, generateConversationTitle } from '../services/api';
+import { chatWithAI } from '../services/api';
 import './ChatInterface.css';
 
 interface ChatInterfaceProps {
@@ -45,113 +45,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
   }, [propConversationId, propMessages]);
 
-  // 模拟AI回复
-  const simulateAIResponse = (_userMessage: string) => {
-    setIsTyping(true);
 
-    // 模拟不同类型对话的回复
-    const getAIResponse = () => {
-      switch (conversationType) {
-        case 'analysis':
-          return `## 神经科学分析
-
-您的消息触发了以下大脑区域：
-
-### 1. 前额叶皮层
-- **功能**：执行控制、决策制定
-- **激活程度**：中等
-
-### 2. 杏仁核
-- **功能**：情绪处理、恐惧反应
-- **激活程度**：低
-
-> 建议：尝试正念冥想，有助于调节前额叶与杏仁核的连接。`;
-        case 'mapping':
-          return `## 修行映射
-
-### "观呼吸"的神经科学原理
-
-| 脑区 | 功能 | 作用 |
-|------|------|------|
-| 前扣带回 | 注意力控制 | 维持专注 |
-| 岛叶 | 内感受 | 觉察呼吸 |
-| 前额叶 | 执行控制 | 抑制分心 |
-
-### 神经可塑性效应
-1. 增强注意力网络
-2. 提升情绪调节能力
-3. 改善自我觉察`;
-        case 'assistant':
-          return `## 注意力训练工具
-
-我为您设计了一个**数字N-back训练**工具，可以有效提升工作记忆和注意力。
-
-### 训练原理
-- 激活前额叶皮层
-- 增强工作记忆容量
-- 提升注意力持续时间
-
-### 使用方法
-1. 选择难度级别（1-back到3-back）
-2. 观察屏幕上出现的数字
-3. 判断当前数字是否与N步前相同
-
-<div style="border: 1px solid #ccc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-  <h3>N-back训练工具</h3>
-  <div style="display: flex; flex-direction: column; gap: 10px;">
-    <div>
-      <label>难度级别：</label>
-      <select>
-        <option value="1">1-back</option>
-        <option value="2">2-back</option>
-        <option value="3">3-back</option>
-      </select>
-    </div>
-    <div style="font-size: 48px; text-align: center; margin: 20px 0;">
-      5
-    </div>
-    <div style="display: flex; gap: 10px;">
-      <button style="flex: 1; padding: 10px;">相同</button>
-      <button style="flex: 1; padding: 10px;">不同</button>
-    </div>
-  </div>
-</div>`;
-        default:
-          return '感谢您的消息！';
-      }
-    };
-
-    // 模拟打字机效果
-    setTimeout(() => {
-      const response = getAIResponse();
-      let index = 0;
-      const aiMessage: Message = {
-        id: `ai-${Date.now()}`,
-        content: '',
-        isUser: false,
-        createdAt: new Date()
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-
-      const typingInterval = setInterval(() => {
-        if (index < response.length) {
-          setMessages(prev => {
-            const updatedMessages = [...prev];
-            const lastMessage = updatedMessages[updatedMessages.length - 1];
-            if (lastMessage.id === aiMessage.id) {
-              lastMessage.content = response.substring(0, index + 1);
-            }
-            return updatedMessages;
-          });
-          index++;
-        } else {
-          clearInterval(typingInterval);
-          setIsTyping(false);
-        }
-      }, 20);
-    }, 1000);
-  };
 
   // 发送消息
   const handleSend = async () => {

@@ -1,13 +1,32 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { User } from '../types';
+import { login as apiLogin, register as apiRegister, getCurrentUser } from '../services/api';
+
+// 添加Authorization头到所有API请求
+const setupAuthInterceptor = () => {
+  const originalFetch = window.fetch;
+  
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const token = localStorage.getItem('token');
+    const headers = {
+      ...init?.headers,
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+    
+    return originalFetch(input, { ...init, headers });
+  };
+};
+
+// 设置拦截器
+setupAuthInterceptor();
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, phone?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,24 +47,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 模拟用户登录
-  const login = async (email: string, _password: string) => {
+  // 验证用户是否已登录
+  const verifyUser = async () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const currentUser = await getCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Failed to verify user:', error);
+        localStorage.removeItem('token');
+        setUser(null);
+      }
+    } else {
+      setUser(null);
+    }
+    setIsLoading(false);
+  };
+
+  // 用户登录
+  const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // 这里应该调用真实的API
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 模拟成功登录
-      const mockUser: User = {
-        id: '1',
-        email,
-        role: 'user',
-        createdAt: new Date()
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
+      const response = await apiLogin(email, password);
+      localStorage.setItem('token', response.token);
+      setUser(response.user);
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -54,24 +80,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // 模拟用户注册
-  const register = async (email: string, _password: string) => {
+  // 用户注册
+  const register = async (email: string, password: string, phone?: string) => {
     setIsLoading(true);
     try {
-      // 这里应该调用真实的API
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // 模拟成功注册
-      const mockUser: User = {
-        id: '1',
-        email,
-        role: 'user',
-        createdAt: new Date()
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('user', JSON.stringify(mockUser));
+      const response = await apiRegister(email, password, phone);
+      localStorage.setItem('token', response.token);
+      setUser(response.user);
     } catch (error) {
       console.error('Registration failed:', error);
       throw error;
@@ -80,16 +95,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // 模拟用户登出
+  // 用户登出
   const logout = async () => {
     setIsLoading(true);
     try {
-      // 这里应该调用真实的API
-      // 模拟API调用延迟
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      // 清除本地存储
+      localStorage.removeItem('token');
       setUser(null);
-      localStorage.removeItem('user');
     } catch (error) {
       console.error('Logout failed:', error);
       throw error;
@@ -99,20 +111,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // 初始化时检查本地存储
-  React.useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        // 转换日期字符串为Date对象
-        parsedUser.createdAt = new Date(parsedUser.createdAt);
-        setUser(parsedUser);
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('user');
-      }
-    }
-    setIsLoading(false);
+  useEffect(() => {
+    verifyUser();
   }, []);
 
   const value = {

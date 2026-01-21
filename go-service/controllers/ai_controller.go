@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nspas/go-service/config"
+	"github.com/nspas/go-service/logger"
 	"github.com/nspas/go-service/models"
 	"github.com/nspas/go-service/services"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -45,16 +47,26 @@ type AIChatResponse struct {
 
 // Chat 处理AI对话请求
 func (c *AIController) Chat(ctx *gin.Context) {
+	reqCtx := ctx.Request.Context()
+	logger.Info(reqCtx, "AI chat request started")
+
 	var req AIChatRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logger.Warn(reqCtx, "Invalid AI chat request", slog.Any("error", err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	logger.Debug(reqCtx, "Processing AI chat request",
+		slog.String("conversation_id", req.ConversationID),
+		slog.String("conversation_type", req.ConversationType),
+		slog.Int("message_count", len(req.Messages)))
 
 	// 从上下文获取用户ID
 	userIDStr, exists := ctx.Get("user_id")
 	if !exists {
 		userIDStr = "anonymous" // 临时处理，后续需要添加认证
+		logger.Warn(reqCtx, "User not authenticated, using anonymous")
 	}
 
 	// 转换消息格式
@@ -67,11 +79,14 @@ func (c *AIController) Chat(ctx *gin.Context) {
 	}
 
 	// 调用AI服务
-	aiResponse, err := c.aiClient.Chat(ctx, aiMessages, req.ConversationType)
+	logger.Info(reqCtx, "Calling AI service")
+	aiResponse, err := c.aiClient.Chat(reqCtx, aiMessages, req.ConversationType)
 	if err != nil {
+		logger.Error(reqCtx, "Failed to call AI service", slog.Any("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to call AI service"})
 		return
 	}
+	logger.Debug(reqCtx, "AI service response received", slog.String("response", aiResponse[:50]+"..."))
 
 	// 创建完整的消息列表，包括AI响应
 	var fullMessages []models.Message
@@ -94,36 +109,45 @@ func (c *AIController) Chat(ctx *gin.Context) {
 	var conversation *models.Conversation
 	if req.ConversationID == "" {
 		// 创建新对话
+		logger.Info(reqCtx, "Creating new conversation")
 		userID, _ := primitive.ObjectIDFromHex(userIDStr.(string))
-		conversation, err = c.conversationService.CreateConversation(ctx, userID, models.ConversationType(req.ConversationType), fullMessages[0].Content[:30])
+		conversation, err = c.conversationService.CreateConversation(reqCtx, userID, models.ConversationType(req.ConversationType), fullMessages[0].Content[:30])
 		if err != nil {
+			logger.Error(reqCtx, "Failed to create conversation", slog.Any("error", err))
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create conversation"})
 			return
 		}
+		logger.Info(reqCtx, "Conversation created successfully", slog.String("conversation_id", conversation.ID.Hex()))
 	} else {
 		// 更新现有对话
+		logger.Info(reqCtx, "Updating existing conversation", slog.String("conversation_id", req.ConversationID))
 		convID, err := primitive.ObjectIDFromHex(req.ConversationID)
 		if err != nil {
+			logger.Warn(reqCtx, "Invalid conversation ID", slog.String("conversation_id", req.ConversationID))
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid conversation ID"})
 			return
 		}
-		conversation, err = c.conversationService.GetConversationByID(ctx, convID)
+		conversation, err = c.conversationService.GetConversationByID(reqCtx, convID)
 		if err != nil {
+			logger.Error(reqCtx, "Conversation not found", slog.Any("error", err))
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "Conversation not found"})
 			return
 		}
 	}
 
 	// 更新对话消息
+	logger.Debug(reqCtx, "Updating conversation messages", slog.String("conversation_id", conversation.ID.Hex()))
 	conversation.Messages = fullMessages
 	conversation.UpdatedAt = time.Now()
-	updatedConversation, err := c.conversationService.UpdateConversation(ctx, conversation.ID, fullMessages)
+	updatedConversation, err := c.conversationService.UpdateConversation(reqCtx, conversation.ID, fullMessages)
 	if err != nil {
+		logger.Error(reqCtx, "Failed to update conversation", slog.Any("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update conversation"})
 		return
 	}
 
 	// 返回响应
+	logger.Info(reqCtx, "AI chat request completed successfully", slog.String("conversation_id", updatedConversation.ID.Hex()))
 	ctx.JSON(http.StatusOK, gin.H{
 		"content":         aiResponse,
 		"conversation_id": updatedConversation.ID.Hex(),

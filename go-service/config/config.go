@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -12,6 +14,7 @@ type Config struct {
 	JWT      JWTConfig
 	PythonAI PythonAIConfig
 	WeChat   WeChatConfig
+	Log      LogConfig
 }
 
 type ServerConfig struct {
@@ -39,7 +42,20 @@ type WeChatConfig struct {
 	Scope       string
 }
 
+type LogConfig struct {
+	Level   string // 日志等级：debug, info, warn, error
+	Path    string // 日志保存路径
+	MaxSize int    // 单个日志文件最大大小（MB）
+	MaxAge  int    // 日志文件保存天数
+}
+
 func LoadConfig() *Config {
+	// 加载.env文件
+	err := godotenv.Load()
+	if err != nil {
+		log.Printf("Warning: Error loading .env file: %v", err)
+	}
+
 	port, err := strconv.Atoi(getEnv("SERVER_PORT", "8080"))
 	if err != nil {
 		log.Printf("Invalid SERVER_PORT, using default: %v", err)
@@ -50,6 +66,18 @@ func LoadConfig() *Config {
 	if err != nil {
 		log.Printf("Invalid JWT_EXPIRES, using default: %v", err)
 		expires = 24
+	}
+
+	logMaxSize, err := strconv.Atoi(getEnv("LOG_MAX_SIZE", "10"))
+	if err != nil {
+		log.Printf("Invalid LOG_MAX_SIZE, using default: %v", err)
+		logMaxSize = 10
+	}
+
+	logMaxAge, err := strconv.Atoi(getEnv("LOG_MAX_AGE", "7"))
+	if err != nil {
+		log.Printf("Invalid LOG_MAX_AGE, using default: %v", err)
+		logMaxAge = 7
 	}
 
 	return &Config{
@@ -72,6 +100,12 @@ func LoadConfig() *Config {
 			AppSecret:   getEnv("WECHAT_APP_SECRET", "your-wechat-app-secret"),
 			RedirectURI: getEnv("WECHAT_REDIRECT_URI", "http://localhost:8080/api/auth/wechat/callback"),
 			Scope:       getEnv("WECHAT_SCOPE", "snsapi_userinfo"),
+		},
+		Log: LogConfig{
+			Level:   getEnv("LOG_LEVEL", "info"),
+			Path:    getEnv("LOG_PATH", "./logs"),
+			MaxSize: logMaxSize,
+			MaxAge:  logMaxAge,
 		},
 	}
 }
