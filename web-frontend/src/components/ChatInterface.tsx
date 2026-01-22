@@ -4,6 +4,7 @@ import remarkGfm from 'remark-gfm';
 import type { Message, ConversationType } from '../types';
 import { chatWithAI } from '../services/api';
 import './ChatInterface.css';
+import './ChatMessage.css';
 
 interface ChatInterfaceProps {
   conversationType: ConversationType;
@@ -108,11 +109,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   return (
     <div className="chat-interface">
       <div className="chat-header">
-        <h2>
-          {conversationType === 'analysis' && '🧠 神经科学分析'}
-          {conversationType === 'mapping' && '✨ 修行映射'}
-          {conversationType === 'assistant' && '🔧 修行小助手'}
-        </h2>
         {onSaveTool && (
           <button 
             className="save-tool-button"

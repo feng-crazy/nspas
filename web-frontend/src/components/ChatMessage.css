@@ -1,0 +1,81 @@
+/* 聊天消息样式 */
+.chat-messages {
+  flex: 1;
+  padding: var(--spacing-md);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.message {
+  display: flex;
+  margin-bottom: var(--spacing-md);
+}
+
+.user-message {
+  justify-content: flex-end;
+}
+
+.ai-message {
+  justify-content: flex-start;
+}
+
+.message-content {
+  max-width: 70%;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  word-wrap: break-word;
+}
+
+.user-message .message-content {
+  background-color: var(--primary-color);
+  color: white;
+  border-bottom-right-radius: 0;
+}
+
+.ai-message .message-content {
+  background-color: var(--secondary-color);
+  color: var(--text-color);
+  border-bottom-left-radius: 0;
+}
+
+/* 打字指示器 */
+.typing-indicator {
+  display: flex;
+  gap: 5px;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background-color: var(--text-light);
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  30% {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .message-content {
+    max-width: 85%;
+  }
+}

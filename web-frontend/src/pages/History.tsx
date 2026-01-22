@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import type { Conversation } from '../types';
 import { getConversations } from '../services/api';
+import './HistoryPage.css';
 
 const History: React.FC = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);

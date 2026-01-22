@@ -1,0 +1,39 @@
+/* 工具页面样式 */
+.tools-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--spacing-md);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.tools-header h1 {
+  font-size: var(--font-size-2xl);
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-lg);
+}
+
+.tools-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: var(--spacing-lg);
+}
+
+.no-tools {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: var(--spacing-xl);
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  color: var(--text-light);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .tools-list {
+    grid-template-columns: 1fr;
+  }
+}

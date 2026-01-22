@@ -1,10 +1,12 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import './Navbar.css';
 
 const Navbar: React.FC = () => {
   const { logout, user } = useAuth();
   const location = useLocation();
+  
+
 
   const handleLogout = async () => {
     try {
@@ -56,14 +58,16 @@ const Navbar: React.FC = () => {
           </Link>
         </div>
         
-        <div className="navbar-user">
-          <span className="user-email">{user?.email}</span>
-          <button 
-            className="logout-button"
-            onClick={handleLogout}
-          >
-            退出登录
-          </button>
+        <div className="navbar-right">
+          <div className="navbar-user">
+            <span className="user-email">{user?.email}</span>
+            <button 
+              className="logout-button"
+              onClick={handleLogout}
+            >
+              退出登录
+            </button>
+          </div>
         </div>
       </div>
     </nav>

@@ -1,0 +1,170 @@
+/* 登录页面样式 */
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--background-color);
+}
+
+.login-container {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: var(--spacing-xl);
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.login-header h1 {
+  font-size: var(--font-size-2xl);
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-xs);
+}
+
+.login-header h2 {
+  font-size: var(--font-size-lg);
+  color: var(--text-light);
+}
+
+.login-error {
+  background-color: #fee;
+  color: var(--error-color);
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-md);
+  text-align: center;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.form-group input,
+.form-group textarea {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  font-family: var(--font-family);
+  font-size: var(--font-size-md);
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(30, 64, 175, 0.2);
+}
+
+.login-button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: var(--spacing-sm);
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: var(--spacing-sm);
+}
+
+.login-button:hover:not(:disabled) {
+  background-color: hsl(215 85% 25%);
+}
+
+.login-button:disabled {
+  background-color: var(--border-color);
+  cursor: not-allowed;
+}
+
+.login-toggle {
+  text-align: center;
+  margin-top: var(--spacing-md);
+  color: var(--text-light);
+}
+
+.toggle-button {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0;
+  margin-left: var(--spacing-xs);
+}
+
+.toggle-button:hover {
+  text-decoration: underline;
+}
+
+/* 登录分隔线 */
+.login-divider {
+  display: flex;
+  align-items: center;
+  margin: var(--spacing-lg) 0;
+}
+
+.login-divider::before,
+.login-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: var(--border-color);
+}
+
+.login-divider span {
+  padding: 0 var(--spacing-md);
+  color: var(--text-light);
+  font-size: var(--font-size-sm);
+}
+
+/* 微信登录按钮 */
+.wechat-login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: var(--spacing-sm);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  background-color: white;
+  color: #07C160;
+  font-size: var(--font-size-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.wechat-login-button:hover:not(:disabled) {
+  background-color: #f0f9f4;
+  border-color: #07C160;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.wechat-login-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.wechat-icon {
+  font-size: var(--font-size-lg);
+}

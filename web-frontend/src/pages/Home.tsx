@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import './HomePage.css';
+import '../components/Card.css';
 
 const Home: React.FC = () => {
   return (

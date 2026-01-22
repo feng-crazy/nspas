@@ -1,6 +1,24 @@
 #root {
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 应用主容器 */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 主内容区域 */
+.main {
+  flex: 1;
+  overflow: hidden;
+  transition: all 0.3s ease;
 }
 
 /* 页面容器样式 */
@@ -13,121 +31,6 @@
   flex: 1;
   display: flex;
   min-height: 0;
+  height: 100%;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
-.card {
-  padding: 2em;
-}
-
-.read-the-docs {
-  color: #888;
-}
-
-/* 导航栏样式 */
-.navbar {
-  background-color: #ffffff;
-  border-bottom: 1px solid #e1e4e8;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-  flex-shrink: 0;
-}
-
-.navbar-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 24px;
-  height: 64px;
-}
-
-.navbar-logo {
-  font-size: 18px;
-  font-weight: 600;
-  color: #333333;
-}
-
-.logo-link {
-  text-decoration: none;
-  color: inherit;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.navbar-links {
-  display: flex;
-  gap: 24px;
-  align-items: center;
-}
-
-.navbar-link {
-  text-decoration: none;
-  color: #666666;
-  font-size: 14px;
-  font-weight: 500;
-  transition: color 0.2s ease;
-}
-
-.navbar-link:hover {
-  color: #646cff;
-}
-
-.navbar-link.active {
-  color: #646cff;
-  font-weight: 600;
-}
-
-.navbar-user {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.user-email {
-  font-size: 14px;
-  color: #666666;
-}
-
-.logout-button {
-  background-color: transparent;
-  color: #666666;
-  border: 1px solid #e1e4e8;
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.logout-button:hover {
-  background-color: #f5f7fa;
-  border-color: #646cff;
-  color: #646cff;
-}

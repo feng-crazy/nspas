@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import type { Tool } from '../types';
 import { getUserTools, deleteTool } from '../services/api';
+import './ToolsPage.css';
+import '../components/Card.css';
+import '../components/Modal.css';
 
 const Tools: React.FC = () => {
   const [tools, setTools] = useState<Tool[]>([]);

@@ -1,0 +1,94 @@
+/* 卡片样式 */
+
+/* 首页卡片 */
+.home-card {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: var(--spacing-lg);
+  text-decoration: none;
+  color: var(--text-color);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+}
+
+.home-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px var(--shadow-color);
+}
+
+.card-content h2 {
+  font-size: var(--font-size-xl);
+  margin-bottom: var(--spacing-sm);
+  color: var(--primary-color);
+}
+
+.card-content p {
+  color: var(--text-light);
+  line-height: 1.6;
+}
+
+/* 工具卡片 */
+.tool-card {
+  background-color: white;
+  border-radius: var(--border-radius);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.tool-card-content h3 {
+  font-size: var(--font-size-lg);
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-xs);
+}
+
+.tool-description {
+  color: var(--text-light);
+  margin-bottom: var(--spacing-sm);
+  flex: 1;
+}
+
+.tool-date {
+  font-size: var(--font-size-sm);
+  color: var(--text-light);
+  opacity: 0.8;
+}
+
+.tool-card-actions {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.tool-button {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: var(--font-size-sm);
+}
+
+.tool-button.open {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.tool-button.open:hover {
+  background-color: hsl(215 85% 25%);
+}
+
+.tool-button.delete {
+  background-color: white;
+  color: var(--error-color);
+  border: 1px solid var(--error-color);
+}
+
+.tool-button.delete:hover {
+  background-color: var(--error-color);
+  color: white;
+}

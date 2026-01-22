@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ConversationLayout from '../components/ConversationLayout';
 import { saveTool } from '../services/api';
+import '../components/Modal.css';
 
 const Assistant: React.FC = () => {
   const [showSaveModal, setShowSaveModal] = useState(false);

@@ -8,6 +8,7 @@ import Tools from './pages/Tools';
 import Login from './pages/Login';
 import History from './pages/History';
 import Navbar from './components/Navbar';
+import './App.css';
 
 // 受保护的路由组件
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {

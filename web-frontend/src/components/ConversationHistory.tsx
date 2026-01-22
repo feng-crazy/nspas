@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Conversation, ConversationType } from '../types';
+import './ConversationLayout.css';
 
 interface ConversationHistoryProps {
   conversations: Conversation[];
@@ -8,6 +9,7 @@ interface ConversationHistoryProps {
   onSelectConversation: (conversation: Conversation) => void;
   onNewConversation: () => void;
   loading?: boolean;
+  isCollapsed?: boolean;
 }
 
 const ConversationHistory: React.FC<ConversationHistoryProps> = ({
@@ -16,38 +18,44 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
   conversationType,
   onSelectConversation,
   onNewConversation,
-  loading = false
+  loading = false,
+  isCollapsed = false
 }) => {
   return (
-    <div className="conversation-history-panel">
+    <div className={`conversation-history-panel ${isCollapsed ? 'collapsed' : ''}`}>
       <div className="conversation-history-header">
-        <h2>
-          {conversationType === 'analysis' && '🧠 神经科学分析'}
-          {conversationType === 'mapping' && '✨ 修行映射'}
-          {conversationType === 'assistant' && '🔧 修行小助手'}
-        </h2>
+        {!isCollapsed && (
+          <h2>
+            {conversationType === 'analysis' && '🧠 神经科学分析'}
+            {conversationType === 'mapping' && '✨ 修行映射'}
+            {conversationType === 'assistant' && '🔧 修行小助手'}
+          </h2>
+        )}
         <button 
           className="new-conversation-button"
           onClick={onNewConversation}
+          aria-label="新建对话"
         >
-          新建对话
+          {isCollapsed ? '+' : '新建对话'}
         </button>
       </div>
       
       <div className="conversation-list">
         {loading ? (
           <div className="loading-conversations">
-            <p>加载对话列表中...</p>
+            {!isCollapsed && <p>加载对话列表中...</p>}
           </div>
         ) : conversations.length === 0 ? (
           <div className="no-conversations">
-            <p>暂无对话历史</p>
-            <button 
-              className="create-first-conversation-button"
-              onClick={onNewConversation}
-            >
-              开始第一次对话
-            </button>
+            {!isCollapsed && <p>暂无对话历史</p>}
+            {!isCollapsed && (
+              <button 
+                className="create-first-conversation-button"
+                onClick={onNewConversation}
+              >
+                开始第一次对话
+              </button>
+            )}
           </div>
         ) : (
           conversations.map(conversation => (
@@ -55,18 +63,28 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({
               key={conversation.id} 
               className={`conversation-item ${selectedConversationId === conversation.id ? 'active' : ''}`}
               onClick={() => onSelectConversation(conversation)}
+              title={conversation.title}
             >
-              <div className="conversation-item-title">
-                {conversation.title}
-              </div>
-              <div className="conversation-item-meta">
-                <span className="conversation-item-date">
-                  {conversation.updatedAt.toLocaleDateString()}
-                </span>
-                <span className="conversation-item-message-count">
-                  {conversation.messages.length} 条消息
-                </span>
-              </div>
+              {!isCollapsed && (
+                <div className="conversation-item-title">
+                  {conversation.title}
+                </div>
+              )}
+              {!isCollapsed && (
+                <div className="conversation-item-meta">
+                  <span className="conversation-item-date">
+                    {conversation.updatedAt.toLocaleDateString()}
+                  </span>
+                  <span className="conversation-item-message-count">
+                    {conversation.messages.length} 条消息
+                  </span>
+                </div>
+              )}
+              {isCollapsed && (
+                <div className="conversation-item-collapsed">
+                  <div className="conversation-item-collapsed-icon">💬</div>
+                </div>
+              )}
             </div>
           ))
         )}

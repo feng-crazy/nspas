@@ -15,6 +15,7 @@ const ConversationLayout: React.FC<ConversationLayoutProps> = ({ conversationTyp
   const [loading, setLoading] = useState(true);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [currentMessages, setCurrentMessages] = useState<Message[]>([]);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 获取历史会话列表
   const fetchConversations = async () => {
@@ -72,8 +73,13 @@ const ConversationLayout: React.FC<ConversationLayoutProps> = ({ conversationTyp
     }
   };
 
+  // 切换侧边栏折叠状态
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
   return (
-    <div className="conversation-layout">
+    <div className={`conversation-layout ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       {/* 左侧历史对话列表 */}
       <ConversationHistory 
         conversations={conversations}
@@ -82,10 +88,19 @@ const ConversationLayout: React.FC<ConversationLayoutProps> = ({ conversationTyp
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         loading={loading}
+        isCollapsed={isSidebarCollapsed}
       />
       
       {/* 右侧聊天界面 */}
       <div className="chat-interface-panel">
+        {/* 侧边栏折叠按钮 */}
+        <button 
+          className="sidebar-toggle-button"
+          onClick={toggleSidebar}
+          aria-label={isSidebarCollapsed ? '展开侧边栏' : '折叠侧边栏'}
+        >
+          {isSidebarCollapsed ? '▶' : '◀'}
+        </button>
         <ChatInterface 
           conversationType={conversationType} 
           conversationId={currentConversationId}
