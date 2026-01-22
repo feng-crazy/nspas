@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import type { ConversationType, Conversation, Message } from '../types';
 import ConversationHistory from './ConversationHistory';
 import ChatInterface from './ChatInterface';
@@ -18,7 +18,7 @@ const ConversationLayout: React.FC<ConversationLayoutProps> = ({ conversationTyp
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   // 获取历史会话列表
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getConversations(conversationType);
@@ -40,12 +40,12 @@ const ConversationLayout: React.FC<ConversationLayoutProps> = ({ conversationTyp
     } finally {
       setLoading(false);
     }
-  };
+  }, [conversationType]);
 
   // 初始加载会话列表
   useEffect(() => {
     fetchConversations();
-  }, [conversationType]);
+  }, [fetchConversations]);
 
   // 新建对话
   const handleNewConversation = () => {

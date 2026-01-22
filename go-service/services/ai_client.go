@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -8,6 +9,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/nspas/go-service/config"
 	"github.com/nspas/go-service/logger"
@@ -17,6 +20,8 @@ import (
 type AIClient interface {
 	// Chat 调用AI服务进行对话
 	Chat(ctx context.Context, messages []Message, convType string) (string, error)
+	// StreamChat 流式调用AI服务进行对话
+	StreamChat(ctx context.Context, messages []Message, convType string) (<-chan string, error)
 }
 
 // Message 定义消息结构
@@ -138,6 +143,122 @@ func (c *HTTPClient) Chat(ctx context.Context, messages []Message, convType stri
 	return resp.Content, nil
 }
 
+// StreamChat 流式调用python-ai-service进行对话
+func (c *HTTPClient) StreamChat(ctx context.Context, messages []Message, convType string) (<-chan string, error) {
+	logger.Info(ctx, "AI stream chat request started",
+		slog.String("conversation_type", convType),
+		slog.Int("message_count", len(messages)))
+
+	// 创建请求体
+	reqBody := AIChatRequest{
+		Messages:         messages,
+		ConversationType: convType,
+	}
+
+	// 将请求体转换为JSON
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		logger.Error(ctx, "Failed to marshal request body", slog.Any("error", err))
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	logger.Debug(ctx, "AI stream chat request body", 
+		slog.String("body", string(jsonData)))
+
+	// 创建HTTP请求
+	reqURL := fmt.Sprintf("%s/stream-chat", c.cfg.PythonAI.BaseURL)
+	httpReq, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		reqURL,
+		bytes.NewBuffer(jsonData),
+	)
+	if err != nil {
+		logger.Error(ctx, "Failed to create HTTP request", 
+			slog.String("url", reqURL),
+			slog.Any("error", err))
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// 设置请求头
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	// 发送请求
+	logger.Info(ctx, "Sending stream request to AI service", 
+		slog.String("url", reqURL))
+	httpResp, err := c.client.Do(httpReq)
+	if err != nil {
+		logger.Error(ctx, "Failed to send stream request to AI service", 
+			slog.String("url", reqURL),
+			slog.Any("error", err))
+		return nil, fmt.Errorf("failed to send request: %w", err)
+	}
+
+	// 检查响应状态码
+	if httpResp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(httpResp.Body)
+		httpResp.Body.Close()
+		logger.Error(ctx, "AI service returned error status", 
+			slog.String("url", reqURL),
+			slog.Int("status_code", httpResp.StatusCode),
+			slog.String("response", string(body)))
+		return nil, fmt.Errorf("AI service returned status code: %d, body: %s", httpResp.StatusCode, string(body))
+	}
+
+	// 创建结果channel
+	resultChan := make(chan string)
+
+	// 启动goroutine处理流式响应
+	go func() {
+		defer func() {
+			httpResp.Body.Close()
+			close(resultChan)
+		}()
+
+		// 创建bufio.Reader用于读取响应体
+		reader := bufio.NewReader(httpResp.Body)
+
+		for {
+			// 读取一行数据
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				if err != io.EOF {
+					logger.Error(ctx, "Failed to read stream response", slog.Any("error", err))
+				}
+				break
+			}
+
+			// 去除换行符
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+
+			// 解析响应数据
+			var resp AIChatResponse
+			if err := json.Unmarshal([]byte(line), &resp); err != nil {
+				logger.Error(ctx, "Failed to unmarshal stream response", 
+					slog.String("line", line),
+					slog.Any("error", err))
+				continue
+			}
+
+			// 发送响应内容到channel
+			select {
+			case <-ctx.Done():
+				logger.Info(ctx, "Stream chat context cancelled")
+				return
+			case resultChan <- resp.Content:
+				// 发送成功
+			}
+		}
+
+		logger.Info(ctx, "AI stream chat request completed successfully")
+	}()
+
+	return resultChan, nil
+}
+
 // MockAIClient 实现AIClient接口，用于mock AI服务调用
 type MockAIClient struct {
 	// MockResponse 用于设置mock响应
@@ -178,6 +299,51 @@ func (c *MockAIClient) Chat(ctx context.Context, messages []Message, convType st
 		slog.String("response", c.MockResponse[:50]+"..."))
 
 	return c.MockResponse, nil
+}
+
+// StreamChat 模拟流式输出AI响应
+func (c *MockAIClient) StreamChat(ctx context.Context, messages []Message, convType string) (<-chan string, error) {
+	logger.Info(ctx, "Mock AI stream chat request started",
+		slog.String("conversation_type", convType),
+		slog.Int("message_count", len(messages)))
+
+	if c.MockError != nil {
+		logger.Error(ctx, "Mock AI stream chat returned error", 
+			slog.String("conversation_type", convType),
+			slog.Any("error", c.MockError))
+		return nil, c.MockError
+	}
+
+	// 如果没有设置mock响应，返回默认响应
+	response := c.MockResponse
+	if response == "" {
+		response = getDefaultResponse(convType)
+	}
+
+	// 创建结果channel
+	resultChan := make(chan string)
+
+	// 启动goroutine模拟流式输出
+	go func() {
+		defer close(resultChan)
+
+		// 逐字符发送响应，模拟打字机效果
+		for _, char := range response {
+			select {
+			case <-ctx.Done():
+				logger.Info(ctx, "Mock AI stream chat context cancelled")
+				return
+			case resultChan <- string(char):
+				// 模拟真实的打字速度，每100毫秒发送一个字符
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+
+		logger.Info(ctx, "Mock AI stream chat completed successfully", 
+			slog.String("conversation_type", convType))
+	}()
+
+	return resultChan, nil
 }
 
 // SetMockResponse 设置mock响应

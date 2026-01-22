@@ -66,11 +66,46 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setMessages(updatedMessages);
     setInput('');
 
+    // 创建AI消息占位符
+    const aiMessage: Message = {
+      id: `ai-${Date.now()}`,
+      content: '',
+      isUser: false,
+      createdAt: new Date()
+    };
+    
+    // 添加AI消息占位符到消息列表
+    const messagesWithAiPlaceholder = [...updatedMessages, aiMessage];
+    setMessages(messagesWithAiPlaceholder);
+
     try {
-      // 调用AI服务获取响应
-      const aiResponse = await chatWithAI(updatedMessages, conversationType, conversationId || undefined);
+      // 调用AI服务获取响应，使用流式更新
+      const aiResponse = await chatWithAI(
+        updatedMessages,
+        conversationType,
+        conversationId || undefined,
+        (updateData) => {
+          // 实时更新AI消息内容
+          setMessages(prevMessages => {
+            const newMessages = [...prevMessages];
+            // 更新最后一条AI消息的内容
+            if (newMessages.length > 0) {
+              newMessages[newMessages.length - 1] = {
+                ...newMessages[newMessages.length - 1],
+                content: updateData.full_content
+              };
+            }
+            return newMessages;
+          });
+          
+          // 更新conversationId（如果是新建对话）
+          if (!conversationId) {
+            setConversationId(updateData.conversation_id);
+          }
+        }
+      );
       
-      // 更新消息列表，包含AI响应
+      // 更新消息列表，包含完整AI响应
       const finalMessages = aiResponse.messages;
       setMessages(finalMessages);
       
@@ -85,14 +120,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       }
     } catch (error) {
       console.error('Failed to send message:', error);
-      // 显示错误消息
-      const errorMessage: Message = {
-        id: `ai-${Date.now()}`,
-        content: '抱歉，发送消息失败，请稍后重试。',
-        isUser: false,
-        createdAt: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // 更新错误消息
+      setMessages(prevMessages => {
+        const newMessages = [...prevMessages];
+        // 更新最后一条AI消息为错误消息
+        if (newMessages.length > 0) {
+          newMessages[newMessages.length - 1] = {
+            ...newMessages[newMessages.length - 1],
+            content: '抱歉，发送消息失败，请稍后重试。'
+          };
+        }
+        return newMessages;
+      });
     } finally {
       setIsTyping(false);
     }

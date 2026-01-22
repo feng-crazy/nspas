@@ -78,29 +78,126 @@ export const deleteConversation = async (id: string): Promise<void> => {
   }
 };
 
-// 调用AI服务进行聊天
-export const chatWithAI = async (messages: Message[], conversationType: string, conversationId?: string): Promise<{
+// 调用AI服务进行聊天（流式）
+export const chatWithAI = async (messages: Message[], conversationType: string, conversationId?: string, onUpdate?: (data: {
+  content: string;
+  full_content: string;
+  conversation_id: string;
+  messages: Message[];
+}) => void): Promise<{
   content: string;
   conversation_id: string;
   messages: Message[];
 }> => {
-  const response = await fetch(`${API_BASE_URL}/ai/chat`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messages,
-      conversation_type: conversationType,
-      conversation_id: conversationId || '',
-    }),
+  return new Promise((resolve, reject) => {
+    // 创建AbortController用于取消请求
+    const controller = new AbortController();
+    const { signal } = controller;
+    
+    // 发送POST请求，使用流式响应
+    fetch(`${API_BASE_URL}/ai/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages,
+        conversation_type: conversationType,
+        conversation_id: conversationId || '',
+      }),
+      signal,
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Failed to call AI service');
+      }
+      
+      // 检查是否支持流式响应
+      if (!response.body) {
+        throw new Error('Response body is not readable');
+      }
+      
+      // 创建ReadableStream读取器
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let buffer = '';
+      let fullResponse: {
+        content: string;
+        conversation_id: string;
+        messages: Message[];
+      } | null = null;
+      
+      // 定义读取函数
+      const readStream = async () => {
+        try {
+          const { done, value } = await reader.read();
+          
+          if (done) {
+            // 流结束，返回完整响应
+            if (fullResponse) {
+              resolve(fullResponse);
+            } else {
+              reject(new Error('No complete response received'));
+            }
+            return;
+          }
+          
+          // 解码新接收到的数据
+          buffer += decoder.decode(value, { stream: true });
+          
+          // 处理缓冲区中的SSE事件
+          let eventEndIndex;
+          while ((eventEndIndex = buffer.indexOf('\n\n')) !== -1) {
+            const eventData = buffer.substring(0, eventEndIndex);
+            buffer = buffer.substring(eventEndIndex + 2);
+            
+            // 解析SSE事件
+            if (eventData.startsWith('data: ')) {
+              const jsonData = eventData.substring(6);
+              try {
+                const data = JSON.parse(jsonData);
+                
+                // 根据事件类型处理
+                if (data) {
+                  // 调用更新回调
+                  if (onUpdate) {
+                    onUpdate({
+                      content: data.content,
+                      full_content: data.full_content,
+                      conversation_id: data.conversation_id,
+                      messages: data.messages,
+                    });
+                  }
+                  
+                  // 保存完整响应
+                  if (data.completed) {
+                    fullResponse = {
+                      content: data.content,
+                      conversation_id: data.conversation_id,
+                      messages: data.messages,
+                    };
+                  }
+                }
+              } catch (e) {
+                console.error('Failed to parse SSE data:', e);
+              }
+            }
+          }
+          
+          // 继续读取
+          readStream();
+        } catch (e) {
+          reject(e);
+        }
+      };
+      
+      // 开始读取流
+      readStream();
+    })
+    .catch(error => {
+      reject(error);
+    });
   });
-  
-  if (!response.ok) {
-    throw new Error('Failed to call AI service');
-  }
-  
-  return response.json();
 };
 
 // 生成会话标题
