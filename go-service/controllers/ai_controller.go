@@ -30,9 +30,10 @@ func NewAIController(cfg *config.Config) *AIController {
 
 // AIChatRequest AI聊天请求
 type AIChatRequest struct {
-	ConversationID   string             `json:"conversation_id,omitempty"`
-	Messages         []Message          `json:"messages" binding:"required"`
-	ConversationType string             `json:"conversation_type" binding:"required,oneof=analysis mapping assistant"`
+	UserID           string    `json:"user_id" binding:"required"`
+	ConversationID   string    `json:"conversation_id" binding:"required"`
+	Messages         []Message `json:"messages" binding:"required"`
+	ConversationType string    `json:"conversation_type" binding:"required,oneof=analysis mapping assistant"`
 }
 
 // Message 消息结构
@@ -59,15 +60,28 @@ func (c *AIController) Chat(ctx *gin.Context) {
 	}
 
 	logger.Debug(reqCtx, "Processing AI chat request",
+		slog.String("usr_id", req.UserID),
 		slog.String("conversation_id", req.ConversationID),
 		slog.String("conversation_type", req.ConversationType),
 		slog.Int("message_count", len(req.Messages)))
 
-	// 从上下文获取用户ID
+	// 获取认证用户ID，如果不存在则返回错误
 	userIDStr, exists := ctx.Get("user_id")
 	if !exists {
-		userIDStr = "anonymous" // 临时处理，后续需要添加认证
-		logger.Warn(reqCtx, "User not authenticated, using anonymous")
+		logger.Warn(reqCtx, "User not authenticated")
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	// 确保请求的用户ID与认证的用户ID一致
+	requestUserID := req.UserID
+	authUserID := userIDStr.(string)
+	if requestUserID != authUserID {
+		logger.Warn(reqCtx, "User ID mismatch", 
+			slog.String("request_user_id", requestUserID), 
+			slog.String("authenticated_user_id", authUserID))
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: User ID mismatch"})
+		return
 	}
 
 	// 转换消息格式
@@ -82,16 +96,29 @@ func (c *AIController) Chat(ctx *gin.Context) {
 	// 处理对话保存，获取或创建对话
 	var conversation *models.Conversation
 	var err error
-	if req.ConversationID == "" {
+	var isNewConversation bool
+
+	if req.ConversationID == "" || req.ConversationID == "new" {
 		// 创建新对话
 		logger.Info(reqCtx, "Creating new conversation")
-		userID, _ := primitive.ObjectIDFromHex(userIDStr.(string))
-		conversation, err = c.conversationService.CreateConversation(reqCtx, userID, models.ConversationType(req.ConversationType), req.Messages[0].Content[:30])
+		userID, err := primitive.ObjectIDFromHex(requestUserID)
+		if err != nil {
+			logger.Warn(reqCtx, "Invalid user ID format", slog.String("user_id", requestUserID))
+			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID format"})
+			return
+		}
+		
+		title := req.Messages[0].Content
+		if len(title) > 30 {
+			title = title[:30] + "..."
+		}
+		conversation, err = c.conversationService.CreateConversation(reqCtx, userID, models.ConversationType(req.ConversationType), title)
 		if err != nil {
 			logger.Error(reqCtx, "Failed to create conversation", slog.Any("error", err))
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create conversation"})
 			return
 		}
+		isNewConversation = true
 		logger.Info(reqCtx, "Conversation created successfully", slog.String("conversation_id", conversation.ID.Hex()))
 	} else {
 		// 更新现有对话
@@ -102,10 +129,20 @@ func (c *AIController) Chat(ctx *gin.Context) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid conversation ID"})
 			return
 		}
+		
 		conversation, err = c.conversationService.GetConversationByID(reqCtx, convID)
 		if err != nil {
 			logger.Error(reqCtx, "Conversation not found", slog.Any("error", err))
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "Conversation not found"})
+			return
+		}
+		
+		// 验证对话属于当前用户
+		if conversation.UserID.Hex() != requestUserID {
+			logger.Warn(reqCtx, "User does not own conversation", 
+				slog.String("request_user_id", requestUserID),
+				slog.String("conversation_owner_id", conversation.UserID.Hex()))
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "Forbidden: You don't own this conversation"})
 			return
 		}
 	}
@@ -135,7 +172,7 @@ func (c *AIController) Chat(ctx *gin.Context) {
 
 	// 调用AI服务的流式接口
 	logger.Info(reqCtx, "Calling AI stream service")
-	streamChan, err := c.aiClient.StreamChat(reqCtx, aiMessages, req.ConversationType)
+	streamChan, err := c.aiClient.StreamChat(reqCtx, requestUserID, req.ConversationID, aiMessages, req.ConversationType)
 	if err != nil {
 		logger.Error(reqCtx, "Failed to call AI stream service", slog.Any("error", err))
 		sseErr := map[string]any{
@@ -152,18 +189,19 @@ func (c *AIController) Chat(ctx *gin.Context) {
 	var aiResponse string
 	for chunk := range streamChan {
 		aiResponse += chunk
-		
+
 		// 更新AI响应内容
 		fullMessages[len(fullMessages)-1].Content = aiResponse
-		
+
 		// 构建SSE响应数据
 		sseData := map[string]any{
-			"content":         chunk,
-			"full_content":    aiResponse,
-			"conversation_id": conversation.ID.Hex(),
-			"messages":        fullMessages,
+			"content":           chunk,
+			"full_content":      aiResponse,
+			"conversation_id":   conversation.ID.Hex(),
+			"is_new_conversation": isNewConversation,
+			"messages":          fullMessages,
 		}
-		
+
 		// 发送SSE事件
 		if data, err := json.Marshal(sseData); err == nil {
 			ctx.SSEvent("message", string(data))
@@ -182,10 +220,11 @@ func (c *AIController) Chat(ctx *gin.Context) {
 
 	// 发送完成事件
 	sseComplete := map[string]any{
-		"content":         aiResponse,
-		"conversation_id": conversation.ID.Hex(),
-		"messages":        fullMessages,
-		"completed":       true,
+		"content":           aiResponse,
+		"conversation_id":   conversation.ID.Hex(),
+		"is_new_conversation": isNewConversation,
+		"messages":          fullMessages,
+		"completed":         true,
 	}
 	if data, err := json.Marshal(sseComplete); err == nil {
 		ctx.SSEvent("complete", string(data))

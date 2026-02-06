@@ -56,10 +56,14 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 			email := claims["email"].(string)
 			c.Set("user_id", userID)
 			c.Set("email", email)
-			logger.Info(ctx, "Authentication successful", 
-				slog.String("user_id", userID), 
+			logger.Info(ctx, "Authentication successful",
+				slog.String("user_id", userID),
 				slog.String("email", email))
 			c.Next()
+		} else if serviceID, svcExists := claims["service_id"]; svcExists {
+			// 服务间请求
+			c.Set("service_id", serviceID)
+			c.Set("is_internal", true)
 		} else {
 			logger.Warn(ctx, "Invalid token claims")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token claims"})

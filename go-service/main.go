@@ -92,6 +92,7 @@ func main() {
 	toolController := controllers.NewToolController()
 	aiController := controllers.NewAIController(cfg)
 	wechatController := controllers.NewWeChatController(cfg, db)
+	memoryController := controllers.NewMemoryController()
 
 	// 公开路由
 	public := r.Group("/api")
@@ -127,6 +128,9 @@ func main() {
 		protected.GET("/tools", toolController.GetUserTools)
 		protected.GET("/tools/:id", toolController.GetTool)
 		protected.DELETE("/tools/:id", toolController.DeleteTool)
+
+		// 记忆相关
+		protected.GET("/memory/:conversation_id", memoryController.GetConversationMemory)
 	}
 
 	// 启动服务器
