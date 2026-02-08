@@ -20,7 +20,6 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   conversationId: propConversationId, 
   messages: propMessages, 
   onSaveTool,
-  onConversationUpdate
 }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>(propMessages || []);
