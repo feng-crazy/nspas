@@ -5,12 +5,12 @@ const API_BASE_URL = '/api';
 
 // 获取历史会话列表
 export const getConversations = async (type?: string): Promise<Conversation[]> => {
-  const url = new URL(`${API_BASE_URL}/conversations`);
+  let url = `${API_BASE_URL}/conversations`;
   if (type) {
-    url.searchParams.append('type', type);
+    url += `?type=${encodeURIComponent(type)}`;
   }
   
-  const response = await fetch(url.toString());
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error('Failed to fetch conversations');
   }
@@ -79,7 +79,7 @@ export const deleteConversation = async (id: string): Promise<void> => {
 };
 
 // 调用AI服务进行聊天（流式）
-export const chatWithAI = async (messages: Message[], conversationType: string, conversationId?: string, onUpdate?: (data: {
+export const chatWithAI = async (userId: string, messages: Message[], conversationType: string, conversationId?: string, onUpdate?: (data: {
   content: string;
   full_content: string;
   conversation_id: string;
@@ -90,6 +90,8 @@ export const chatWithAI = async (messages: Message[], conversationType: string, 
   messages: Message[];
 }> => {
   return new Promise((resolve, reject) => {
+    console.log('[api.ts] 开始调用AI服务');
+    
     // 创建AbortController用于取消请求
     const controller = new AbortController();
     const { signal } = controller;
@@ -101,6 +103,7 @@ export const chatWithAI = async (messages: Message[], conversationType: string, 
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        user_id: userId,
         messages,
         conversation_type: conversationType,
         conversation_id: conversationId || '',
@@ -108,6 +111,8 @@ export const chatWithAI = async (messages: Message[], conversationType: string, 
       signal,
     })
     .then(response => {
+      console.log('[api.ts] 收到响应，状态:', response.status, response.ok);
+      
       if (!response.ok) {
         throw new Error('Failed to call AI service');
       }
@@ -126,6 +131,8 @@ export const chatWithAI = async (messages: Message[], conversationType: string, 
         conversation_id: string;
         messages: Message[];
       } | null = null;
+      let accumulatedContent = '';
+      let chunkCount = 0;
       
       // 定义读取函数
       const readStream = async () => {
@@ -134,7 +141,9 @@ export const chatWithAI = async (messages: Message[], conversationType: string, 
           
           if (done) {
             // 流结束，返回完整响应
+            console.log('[api.ts] 流结束，收到', chunkCount, '个数据块');
             if (fullResponse) {
+              console.log('[api.ts] 流式响应完成，完整内容长度:', fullResponse.content.length);
               resolve(fullResponse);
             } else {
               reject(new Error('No complete response received'));
@@ -143,43 +152,66 @@ export const chatWithAI = async (messages: Message[], conversationType: string, 
           }
           
           // 解码新接收到的数据
-          buffer += decoder.decode(value, { stream: true });
+          chunkCount++;
+          const decodedValue = decoder.decode(value, { stream: true });
+          buffer += decodedValue;
+          console.log(`[api.ts] 收到第${chunkCount}个数据块，长度:`, decodedValue.length);
           
           // 处理缓冲区中的SSE事件
           let eventEndIndex;
+          let processedCount = 0;
           while ((eventEndIndex = buffer.indexOf('\n\n')) !== -1) {
             const eventData = buffer.substring(0, eventEndIndex);
             buffer = buffer.substring(eventEndIndex + 2);
+            processedCount++;
+            
+            console.log(`[api.ts] 处理SSE事件${processedCount}:`, eventData.substring(0, 200));
             
             // 解析SSE事件
             if (eventData.startsWith('data: ')) {
               const jsonData = eventData.substring(6);
               try {
                 const data = JSON.parse(jsonData);
+                console.log('[api.ts] 解析SSE数据成功:', JSON.stringify(data).substring(0, 200));
                 
-                // 根据事件类型处理
-                if (data) {
-                  // 调用更新回调
-                  if (onUpdate) {
-                    onUpdate({
-                      content: data.content,
-                      full_content: data.full_content,
-                      conversation_id: data.conversation_id,
-                      messages: data.messages,
-                    });
-                  }
-                  
-                  // 保存完整响应
-                  if (data.completed) {
-                    fullResponse = {
-                      content: data.content,
-                      conversation_id: data.conversation_id,
-                      messages: data.messages,
-                    };
-                  }
+                // 累积内容
+                if (data.content) {
+                  accumulatedContent += data.content;
+                  console.log('[api.ts] 累积内容长度:', accumulatedContent.length);
                 }
+                
+                // 调用更新回调
+                if (onUpdate) {
+                  console.log('[api.ts] 调用onUpdate回调');
+                  onUpdate({
+                    content: data.content || '',
+                    full_content: accumulatedContent,
+                    conversation_id: data.conversation_id || conversationId || '',
+                    messages: data.messages || messages,
+                  });
+                }
+                
+                // 保存完整响应
+                fullResponse = {
+                  content: accumulatedContent,
+                  conversation_id: data.conversation_id || conversationId || '',
+                  messages: data.messages || messages,
+                };
               } catch (e) {
-                console.error('Failed to parse SSE data:', e);
+                console.error('[api.ts] 解析SSE数据失败:', e);
+                console.error('[api.ts] 无效的JSON数据:', jsonData.substring(0, 200));
+              }
+            } else if (eventData.startsWith('event: error')) {
+              // 处理错误事件
+              const errorLine = eventData.split('\n').find(line => line.startsWith('data: '));
+              if (errorLine) {
+                const errorData = errorLine.substring(6);
+                try {
+                  const errorObj = JSON.parse(errorData);
+                  reject(new Error(errorObj.error || 'AI service error'));
+                } catch {
+                  reject(new Error('AI service error'));
+                }
               }
             }
           }
@@ -187,6 +219,7 @@ export const chatWithAI = async (messages: Message[], conversationType: string, 
           // 继续读取
           readStream();
         } catch (e) {
+          console.error('[api.ts] 读取流时出错:', e);
           reject(e);
         }
       };
@@ -195,6 +228,7 @@ export const chatWithAI = async (messages: Message[], conversationType: string, 
       readStream();
     })
     .catch(error => {
+      console.error('[api.ts] 请求失败:', error);
       reject(error);
     });
   });

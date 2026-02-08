@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Message, ConversationType } from '../types';
 import { chatWithAI } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 import './ChatInterface.css';
 import './ChatMessage.css';
 
@@ -10,7 +11,7 @@ interface ChatInterfaceProps {
   conversationType: ConversationType;
   conversationId?: string | null;
   messages?: Message[];
-  onSaveTool?: (htmlContent: string) => void;
+  onSaveTool?: (htmlContent: string, conversationId?: string) => void;
   onConversationUpdate?: (conversationId: string, messages: Message[]) => void;
 }
 
@@ -21,11 +22,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onSaveTool,
   onConversationUpdate
 }) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>(propMessages || []);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(propConversationId || null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [aiResponseText, setAiResponseText] = useState<string>('');
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const aiMessageIdRef = useRef<string>('');
+  
+  // 使用 useMemo 缓存最新的 AI 消息
+  const latestAiMessage = useMemo(() => {
+    return messages.filter(msg => !msg.isUser).pop();
+  }, [messages]);
+  
+  // 显示提示信息
+  const showToast = (message: string) => {
+    setToastMessage(message);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
 
   // 滚动到底部
   const scrollToBottom = () => {
@@ -34,7 +53,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, aiResponseText]);
 
   // 从props更新conversationId和messages
   useEffect(() => {
@@ -42,88 +61,90 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       setConversationId(propConversationId);
     }
     if (propMessages !== undefined) {
-      setMessages(propMessages);
+      const processedMessages = propMessages.map((msg, index) => ({
+        ...msg,
+        id: msg.id && msg.id !== '000000000000000000000000' 
+          ? msg.id 
+          : generateUniqueId(`${msg.isUser ? 'user-' : 'ai-'}-${index}`)
+      }));
+      setMessages(processedMessages);
     }
   }, [propConversationId, propMessages]);
 
-
+  // 生成唯一ID
+  const generateUniqueId = (prefix: string = ''): string => {
+    return `${prefix}${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  };
 
   // 发送消息
   const handleSend = async () => {
     if (!input.trim() || isTyping) return;
 
     setIsTyping(true);
+    setAiResponseText('');
 
     const userMessage: Message = {
-      id: `user-${Date.now()}`,
+      id: generateUniqueId('user-'),
       content: input.trim(),
       isUser: true,
       createdAt: new Date()
     };
 
-    // 更新本地消息列表，显示用户消息
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput('');
 
-    // 创建AI消息占位符
+    const aiMessageId = generateUniqueId('ai-');
+    aiMessageIdRef.current = aiMessageId;
+    
     const aiMessage: Message = {
-      id: `ai-${Date.now()}`,
-      content: '',
+      id: aiMessageId,
+      content: '正在思考...',
       isUser: false,
       createdAt: new Date()
     };
     
-    // 添加AI消息占位符到消息列表
     const messagesWithAiPlaceholder = [...updatedMessages, aiMessage];
     setMessages(messagesWithAiPlaceholder);
 
     try {
-      // 调用AI服务获取响应，使用流式更新
-      const aiResponse = await chatWithAI(
+      if (!user?.id) {
+        throw new Error('用户未登录');
+      }
+
+      const currentConversationId = conversationId;
+
+      await chatWithAI(
+        user.id,
         updatedMessages,
         conversationType,
-        conversationId || undefined,
+        currentConversationId || undefined,
         (updateData) => {
-          // 实时更新AI消息内容
+          console.log('[ChatInterface] 收到数据:', updateData.full_content);
+          setAiResponseText(updateData.full_content);
+          
           setMessages(prevMessages => {
             const newMessages = [...prevMessages];
-            // 更新最后一条AI消息的内容
-            if (newMessages.length > 0) {
-              newMessages[newMessages.length - 1] = {
-                ...newMessages[newMessages.length - 1],
+            const aiIndex = newMessages.findIndex(m => m.id === aiMessageId);
+            if (aiIndex !== -1) {
+              newMessages[aiIndex] = {
+                ...newMessages[aiIndex],
                 content: updateData.full_content
               };
             }
             return newMessages;
           });
           
-          // 更新conversationId（如果是新建对话）
-          if (!conversationId) {
+          if (!currentConversationId && updateData.conversation_id) {
             setConversationId(updateData.conversation_id);
           }
         }
       );
       
-      // 更新消息列表，包含完整AI响应
-      const finalMessages = aiResponse.messages;
-      setMessages(finalMessages);
-      
-      // 更新conversationId（如果是新建对话）
-      if (!conversationId) {
-        setConversationId(aiResponse.conversation_id);
-      }
-      
-      // 通知父组件会话已更新
-      if (onConversationUpdate) {
-        onConversationUpdate(aiResponse.conversation_id, finalMessages);
-      }
     } catch (error) {
       console.error('Failed to send message:', error);
-      // 更新错误消息
       setMessages(prevMessages => {
         const newMessages = [...prevMessages];
-        // 更新最后一条AI消息为错误消息
         if (newMessages.length > 0) {
           newMessages[newMessages.length - 1] = {
             ...newMessages[newMessages.length - 1],
@@ -151,7 +172,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {onSaveTool && (
           <button 
             className="save-tool-button"
-            onClick={() => onSaveTool('<div>Sample tool HTML</div>')}
+            onClick={() => {
+              if (latestAiMessage) {
+                const content = latestAiMessage.content;
+                
+                const isHtml = /<[^>]+>/.test(content);
+                
+                if (isHtml) {
+                  onSaveTool(content, conversationId || undefined);
+                } else {
+                  console.warn('The latest AI message is not in HTML format');
+                  showToast('最新的AI消息不是HTML格式，无法保存为工具');
+                }
+              } else {
+                console.warn('No AI messages found to save as tool');
+                showToast('没有找到AI消息来保存为工具');
+              }
+            }}
           >
             保存工具
           </button>
@@ -167,6 +204,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <div className="message-content">
               {message.isUser ? (
                 <p>{message.content}</p>
+              ) : message.id === aiMessageIdRef.current && aiResponseText ? (
+                <div dangerouslySetInnerHTML={{ __html: aiResponseText }} />
               ) : (
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {message.content}
@@ -175,7 +214,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             </div>
           </div>
         ))}
-        {isTyping && (
+        {isTyping && !aiResponseText && (
           <div className="message ai-message">
             <div className="message-content">
               <div className="typing-indicator">
@@ -188,6 +227,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         )}
         <div ref={messagesEndRef} />
       </div>
+      
+      {/* 提示信息 */}
+      {toastMessage && (
+        <div className="toast-notification">
+          {toastMessage}
+        </div>
+      )}
       
       <div className="chat-input">
         <textarea

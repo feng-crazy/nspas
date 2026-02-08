@@ -17,7 +17,7 @@ const (
 type Message struct {
 	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	Content   string             `bson:"content" json:"content"`
-	IsUser    bool               `bson:"is_user" json:"is_user"`
+	IsUser    bool               `bson:"is_user" json:"isUser"`
 	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
 }
 

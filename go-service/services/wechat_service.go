@@ -38,15 +38,15 @@ type WeChatTokenResponse struct {
 
 // WeChatUserResponse 微信用户信息响应
 type WeChatUserResponse struct {
-	OpenID     string `json:"openid"`
-	Nickname   string `json:"nickname"`
-	Sex        int    `json:"sex"`
-	Province   string `json:"province"`
-	City       string `json:"city"`
-	Country    string `json:"country"`
-	HeadImgURL string `json:"headimgurl"`
+	OpenID     string   `json:"openid"`
+	Nickname   string   `json:"nickname"`
+	Sex        int      `json:"sex"`
+	Province   string   `json:"province"`
+	City       string   `json:"city"`
+	Country    string   `json:"country"`
+	HeadImgURL string   `json:"headimgurl"`
 	Privilege  []string `json:"privilege"`
-	UnionID    string `json:"unionid,omitempty"`
+	UnionID    string   `json:"unionid,omitempty"`
 }
 
 // GetWeChatOAuthURL 获取微信授权URL
@@ -145,11 +145,11 @@ func (s *WeChatService) WeChatLogin(ctx context.Context, code string) (*models.U
 	// 这里需要实现根据openid查找用户，如果不存在则创建
 	// 暂时返回mock数据
 	user := &models.User{
-		ID:        primitive.NewObjectID(),
-		Email:     fmt.Sprintf("%s@wechat.com", wechatUser.OpenID),
-		Phone:     "",
-		Password:  "", // 微信登录不需要密码
-		Role:      models.RoleUser,
+		ID:       primitive.NewObjectID(),
+		Email:    fmt.Sprintf("%s@wechat.com", wechatUser.OpenID),
+		Phone:    "",
+		Password: "", // 微信登录不需要密码
+		Role:     models.RoleUser,
 	}
 
 	// 4. 生成JWT token

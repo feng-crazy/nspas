@@ -8,8 +8,8 @@ import (
 	"github.com/nspas/go-service/config"
 	"github.com/nspas/go-service/logger"
 	"github.com/nspas/go-service/services"
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type UserController struct {
@@ -23,14 +23,14 @@ func NewUserController(cfg *config.Config, db *mongo.Database) *UserController {
 }
 
 // RegisterRequest 注册请求
- type RegisterRequest struct {
+type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 	Phone    string `json:"phone"`
 }
 
 // LoginRequest 登录请求
- type LoginRequest struct {
+type LoginRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required"`
 }

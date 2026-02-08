@@ -173,10 +173,14 @@ func (c *ConversationController) GetUserConversations(ctx *gin.Context) {
 		return
 	}
 
-	logger.Debug(reqCtx, "Getting user conversations", slog.String("user_id", userID.Hex()))
+	// 解析type查询参数
+	convType := ctx.Query("type")
+	logger.Debug(reqCtx, "Getting user conversations",
+		slog.String("user_id", userID.Hex()),
+		slog.String("type", convType))
 
 	// 获取用户对话
-	conversations, err := c.conversationService.GetUserConversations(reqCtx, userID)
+	conversations, err := c.conversationService.GetUserConversations(reqCtx, userID, convType)
 	if err != nil {
 		logger.Error(reqCtx, "Failed to get user conversations", slog.Any("error", err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get conversations"})
@@ -185,6 +189,7 @@ func (c *ConversationController) GetUserConversations(ctx *gin.Context) {
 
 	logger.Info(reqCtx, "Got user conversations successfully",
 		slog.String("user_id", userID.Hex()),
+		slog.String("type", convType),
 		slog.Int("conversation_count", len(conversations)))
 	ctx.JSON(http.StatusOK, conversations)
 }

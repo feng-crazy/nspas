@@ -105,8 +105,6 @@ func main() {
 		public.GET("/auth/wechat", wechatController.GetWeChatAuthURL)
 		public.GET("/auth/wechat/callback", wechatController.WeChatCallback)
 
-		// AI聊天（公开接口，后续可以添加认证）
-		public.POST("/ai/chat", aiController.Chat)
 	}
 
 	// 受保护路由
@@ -122,6 +120,9 @@ func main() {
 		protected.GET("/conversations/:id", conversationController.GetConversation)
 		protected.PUT("/conversations/:id", conversationController.UpdateConversation)
 		protected.DELETE("/conversations/:id", conversationController.DeleteConversation)
+
+		// AI聊天
+		protected.POST("/ai/chat", aiController.Chat)
 
 		// 工具相关
 		protected.POST("/tools", toolController.SaveTool)

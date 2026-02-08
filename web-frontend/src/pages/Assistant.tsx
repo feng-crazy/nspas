@@ -1,61 +1,32 @@
-import React, { useState } from 'react';
+import React from 'react';
 import ConversationLayout from '../components/ConversationLayout';
-import { saveTool } from '../services/api';
+import { useToolSaver } from '../hooks/useToolSaver';
 import '../components/Modal.css';
 
 const Assistant: React.FC = () => {
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [toolName, setToolName] = useState('');
-  const [toolDescription, setToolDescription] = useState('');
-  const [currentHtmlContent, setCurrentHtmlContent] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
+  const {
+    showSaveModal,
+    toolName,
+    setToolName,
+    toolDescription,
+    setToolDescription,
+    loading,
+    error,
+    openSaveModal,
+    handleSaveTool,
+    closeModal
+  } = useToolSaver();
 
-  const handleSaveTool = (htmlContent: string, conversationId?: string) => {
-    setCurrentHtmlContent(htmlContent);
-    if (conversationId) {
-      setCurrentConversationId(conversationId);
-    }
-    setShowSaveModal(true);
-  };
-
-  const handleModalSave = async () => {
-    if (!currentConversationId) {
-      setError('缺少会话ID，无法保存工具');
-      return;
-    }
-    
-    setLoading(true);
-    setError(null);
-    
-    try {
-      await saveTool({
-        name: toolName,
-        description: toolDescription,
-        html_content: currentHtmlContent,
-        conversation_id: currentConversationId
-      });
-      
-      // 关闭模态框并重置表单
-      setShowSaveModal(false);
-      setToolName('');
-      setToolDescription('');
-      setCurrentHtmlContent('');
-      setCurrentConversationId(null);
-    } catch (err) {
-      console.error('Failed to save tool:', err);
-      setError('保存工具失败，请稍后重试');
-    } finally {
-      setLoading(false);
-    }
+  // 处理保存工具的回调
+  const handleSaveToolCallback = (htmlContent: string, conversationId?: string) => {
+    openSaveModal(htmlContent, conversationId);
   };
 
   return (
     <div className="assistant-page">
       <ConversationLayout 
         conversationType="assistant" 
-        onSaveTool={handleSaveTool} 
+        onSaveTool={handleSaveToolCallback} 
       />
       
       {/* 保存工具模态框 */}
@@ -97,14 +68,14 @@ const Assistant: React.FC = () => {
             <div className="modal-actions">
               <button 
                 className="modal-button cancel"
-                onClick={() => setShowSaveModal(false)}
+                onClick={closeModal}
                 disabled={loading}
               >
                 取消
               </button>
               <button 
                 className="modal-button save"
-                onClick={handleModalSave}
+                onClick={handleSaveTool}
                 disabled={loading || !toolName.trim() || !toolDescription.trim()}
               >
                 {loading ? '保存中...' : '保存'}

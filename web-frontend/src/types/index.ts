@@ -31,6 +31,14 @@ export interface Tool {
   createdAt: Date;
 }
 
+// 保存工具时的数据结构
+export interface ToolSaveData {
+  name: string;
+  description: string;
+  html_content: string;
+  conversation_id: string;
+}
+
 // 用户类型
 export interface User {
   id: string;

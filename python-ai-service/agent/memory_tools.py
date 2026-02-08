@@ -11,11 +11,15 @@ load_dotenv()
 # 配置日志
 logger = structlog.get_logger(__name__)
 
+logger.info("Initializing memory tools")
+
 memory_instructions = """You have access to a tool that allows you to look up the user's conversation history."""
 
 # 获取GO_SERVICE_URL配置
 GO_SERVICE_URL = os.getenv("GO_SERVICE_URL", "http://localhost:8080")
 GO_SERVICE_TOKEN = os.getenv("GO_SERVICE_TOKEN", "sk-asdfghjklqwertyuiopzxcvbnm")
+
+logger.info("Memory tools configuration loaded", go_service_url=GO_SERVICE_URL)
 
 class UserState(AgentState):
     user_id: str

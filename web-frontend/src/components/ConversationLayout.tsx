@@ -7,7 +7,7 @@ import './ConversationLayout.css';
 
 interface ConversationLayoutProps {
   conversationType: ConversationType;
-  onSaveTool?: (htmlContent: string) => void;
+  onSaveTool?: (htmlContent: string, conversationId?: string) => void;
 }
 
 const ConversationLayout: React.FC<ConversationLayoutProps> = ({ conversationType, onSaveTool }) => {
@@ -23,16 +23,21 @@ const ConversationLayout: React.FC<ConversationLayoutProps> = ({ conversationTyp
       setLoading(true);
       const data = await getConversations(conversationType);
       // 转换日期字符串为Date对象
-      const formattedConversations = data.map(conv => ({
-        ...conv,
-        createdAt: new Date(conv.createdAt),
-        updatedAt: new Date(conv.updatedAt),
-        messages: conv.messages.map(msg => ({
-          ...msg,
-          createdAt: new Date(msg.createdAt)
-        }))
-      }));
-      setConversations(formattedConversations);
+      if (data && Array.isArray(data)) {
+        const formattedConversations = data.map(conv => ({
+          ...conv,
+          createdAt: new Date(conv.createdAt),
+          updatedAt: new Date(conv.updatedAt),
+          messages: conv.messages ? conv.messages.map(msg => ({
+            ...msg,
+            createdAt: new Date(msg.createdAt)
+          })) : []
+        }));
+        setConversations(formattedConversations);
+      } else {
+        // 当返回数据为null或不是数组时，显示空列表
+        setConversations([]);
+      }
     } catch (error) {
       console.error('Failed to fetch conversations:', error);
       // 出错时显示空列表，让用户知道发生了错误

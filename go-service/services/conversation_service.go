@@ -13,7 +13,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type ConversationService struct {}
+type ConversationService struct{}
 
 func NewConversationService() *ConversationService {
 	return &ConversationService{}
@@ -55,7 +55,8 @@ func (s *ConversationService) CreateConversation(ctx context.Context, userID pri
 }
 
 // UpdateConversation 更新对话
-func (s *ConversationService) UpdateConversation(ctx context.Context, convID primitive.ObjectID, messages []models.Message) (*models.Conversation, error) {
+func (s *ConversationService) UpdateConversation(ctx context.Context, convID primitive.ObjectID,
+	messages []models.Message) (*models.Conversation, error) {
 	logger.Info(ctx, "Updating conversation started",
 		slog.String("conversation_id", convID.Hex()),
 		slog.Int("message_count", len(messages)))
@@ -115,19 +116,30 @@ func (s *ConversationService) GetConversationByID(ctx context.Context, convID pr
 }
 
 // GetUserConversations 获取用户的所有对话
-func (s *ConversationService) GetUserConversations(ctx context.Context, userID primitive.ObjectID) ([]models.Conversation, error) {
+func (s *ConversationService) GetUserConversations(ctx context.Context, userID primitive.ObjectID, convType string) ([]models.Conversation, error) {
 	logger.Info(ctx, "Getting user conversations started",
-		slog.String("user_id", userID.Hex()))
+		slog.String("user_id", userID.Hex()),
+		slog.String("type", convType))
 
 	collection := database.GetCollection("conversations")
 
-	// 查询用户的所有对话
+	// 构建查询条件
+	filter := bson.M{"user_id": userID}
+	// 如果提供了类型参数，则添加类型过滤
+	if convType != "" {
+		filter["type"] = convType
+	}
+
+	// 查询用户的对话
 	logger.Debug(ctx, "Executing user conversations query",
-		slog.String("user_id", userID.Hex()))
-	cursor, err := collection.Find(ctx, bson.M{"user_id": userID})
+		slog.String("user_id", userID.Hex()),
+		slog.String("type", convType),
+		slog.Any("filter", filter))
+	cursor, err := collection.Find(ctx, filter)
 	if err != nil {
 		logger.Error(ctx, "Failed to query user conversations",
 			slog.String("user_id", userID.Hex()),
+			slog.String("type", convType),
 			slog.Any("error", err))
 		return nil, err
 	}
@@ -148,6 +160,7 @@ func (s *ConversationService) GetUserConversations(ctx context.Context, userID p
 
 	logger.Info(ctx, "Got user conversations successfully",
 		slog.String("user_id", userID.Hex()),
+		slog.String("type", convType),
 		slog.Int("conversation_count", len(conversations)))
 	return conversations, nil
 }

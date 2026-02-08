@@ -102,7 +102,7 @@ func LoadConfig() *Config {
 			Scope:       getEnv("WECHAT_SCOPE", "snsapi_userinfo"),
 		},
 		Log: LogConfig{
-			Level:   getEnv("LOG_LEVEL", "info"),
+			Level:   getEnv("LOG_LEVEL", "debug"),
 			Path:    getEnv("LOG_PATH", "./logs"),
 			MaxSize: logMaxSize,
 			MaxAge:  logMaxAge,

@@ -8,7 +8,7 @@ var (
 	ErrNotFound       = errors.New("resource not found")
 
 	// 用户相关错误
-	ErrUserExists        = errors.New("user already exists")
+	ErrUserExists         = errors.New("user already exists")
 	ErrInvalidCredentials = errors.New("invalid email or password")
 
 	// 对话相关错误

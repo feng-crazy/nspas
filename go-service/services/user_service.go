@@ -16,16 +16,16 @@ import (
 )
 
 type UserService struct {
-	cfg     *config.Config
-	db      *mongo.Database
-	col     *mongo.Collection
+	cfg *config.Config
+	db  *mongo.Database
+	col *mongo.Collection
 }
 
 func NewUserService(cfg *config.Config, db *mongo.Database) *UserService {
 	return &UserService{
-		cfg:     cfg,
-		db:      db,
-		col:     db.Collection("users"),
+		cfg: cfg,
+		db:  db,
+		col: db.Collection("users"),
 	}
 }
 
